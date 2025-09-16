@@ -1,9 +1,19 @@
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import express from '../server/node_modules/express/index.js';
-import cors from '../server/node_modules/cors/lib/index.js';
-import { getLlama, LlamaChatSession } from '../server/node_modules/node-llama-cpp/dist/index.js';
+import express from 'express';
+import cors from 'cors';
+import { getLlama, LlamaChatSession } from 'node-llama-cpp';
+
+// Plugin imports - solo si están disponibles
+let functionsPlugin = null;
+try {
+  const { createLocalLlamaHandler } = await import('./plugins/llama_functions_local.mjs');
+  const { getLocalModelHandler } = await import('./plugins/local_model_handler.mjs');
+  functionsPlugin = { createLocalLlamaHandler, getLocalModelHandler };
+} catch (error) {
+  console.log('Functions plugin not available, running in basic mode');
+}
 
 let getConfig, buildAIContext;
 try {
@@ -26,6 +36,10 @@ let llamaInstance, model, context, session;
 let ready = false;
 let lastError = null;
 
+// Plugin handlers - inicializados cuando se necesiten
+let functionHandlerProd = null;
+let functionHandlerDev = null;
+
 async function initModel() {
   if (model) return;
   const modelPath = path.join(__dirname, 'oasis-42-1-chat.Q4_K_M.gguf');
@@ -39,9 +53,68 @@ async function initModel() {
   ready = true;
 }
 
+// Plugin initialization functions
+async function getFunctionHandler(mode) {
+  if (!functionsPlugin) return null;
+  
+  if (mode === 'prod') {
+    if (!functionHandlerProd) {
+
+      console.log("ROUTE FOR local_model_handler.mjs")
+      functionHandlerProd = await functionsPlugin.getLocalModelHandler();
+    }
+    return functionHandlerProd;
+  } else if (mode === 'dev') {
+    if (!functionHandlerDev) {
+       console.log("ROUTE FOR llama_functions_local.mjs")
+      const modelPath = path.join(__dirname, 'oasis-42-1-chat.Q4_K_M.gguf');
+      functionHandlerDev = functionsPlugin.createLocalLlamaHandler(modelPath, ['fruits', 'system'], { gpu: false });
+      await functionHandlerDev.initialize();
+    }
+    return functionHandlerDev;
+  }
+  
+  return null;
+}
+
 app.post('/ai', async (req, res) => {
+  console.log("Call /ai", req.body)
   try {
     const userInput = String(req.body.input || '').trim();
+    
+    // Detectar modo de funciones desde request o config
+    const functionMode = req.body.functionMode || 
+                        (req.body.useFunctionsProd ? 'prod' : 
+                         req.body.useFunctionsDev ? 'dev' : 
+                         req.body.useFunctions === false ? 'none' : 
+                         'none'); // Por defecto sin funciones para compatibilidad
+
+    // Si hay modo de funciones disponible, usar el plugin
+    if (functionMode !== 'none' && functionsPlugin) {
+
+      console.log("Start /ai Plugins!", req.body)
+      const handler = await getFunctionHandler(functionMode);
+      if (handler) {
+        let userContext = '';
+        try {
+          userContext = await (buildAIContext ? buildAIContext(120) : '');
+        } catch(err) {
+          console.log("Error at route /ai", err.message)
+        }
+
+        console.log("Start /ai Plugins!", req.body)
+        const result = await handler.chat(userInput, userContext);
+        
+        return res.json({ 
+          answer: result.answer || result, 
+          snippets: userContext ? userContext.split('\n').slice(0, 50) : [],
+          hadFunctionCalls: result.hadFunctionCalls || false,
+          mode: functionMode
+        });
+      }
+    }
+
+    // Fallback: modo original sin funciones
     await initModel();
 
     let userContext = '';
@@ -62,8 +135,13 @@ app.post('/ai', async (req, res) => {
       `Query: "${userInput}"`,
       userPrompt
     ].filter(Boolean).join('\n\n');
+    
     const answer = await session.prompt(prompt);
-    res.json({ answer: String(answer || '').trim(), snippets });
+    res.json({ 
+      answer: String(answer || '').trim(), 
+      snippets,
+      mode: 'legacy'
+    });
   } catch (err) {
     lastError = err;
     res.status(500).json({ error: 'Internal Server Error', details: String(err.message || err) });
@@ -74,5 +152,23 @@ app.post('/ai/train', async (req, res) => {
   res.json({ stored: true });
 });
 
-app.listen(4001);
+
+
+app.listen(4001, () => {
+  console.log('🚀 AI Service starting on port 4001');
+  console.log('📍 Available modes:');
+  console.log('  • Default: POST /ai {"input": "question"}');
+  console.log('  • Functions Prod: POST /ai {"input": "question", "useFunctionsProd": true}');
+  console.log('  • Functions Dev: POST /ai {"input": "question", "useFunctionsDev": true}');
+  console.log('  • No Functions: POST /ai {"input": "question", "useFunctions": false}');
+  if (!functionsPlugin) {
+    console.log('⚠️  Functions plugin not loaded - only legacy mode available');
+  }
+}).on('error', (err) => {
+  console.error('❌ Failed to start AI Service:', err.message);
+  if (err.code === 'EADDRINUSE') {
+    console.error('Port 4001 is already in use');
+  }
+  process.exit(1);
+});
 

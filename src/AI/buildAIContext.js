@@ -66,6 +66,14 @@ async function publishExchange({ q, a, ctx = [], tokens = {} }) {
 }
 
 async function buildContext(maxItems = 100) {
+
+  if (!cooler) {
+    console.log("No cooler!")
+    return "";
+  } else {
+    console.log("Opening the cooler!")
+  }
+
   const ssb = await cooler.open();
   return new Promise((resolve, reject) => {
     pull(
