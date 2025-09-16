@@ -13,6 +13,105 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 /**
+ * Configuraciones predefinidas de funciones para node-llama-cpp
+ */
+export const LOCAL_FUNCTION_CONFIGS = {
+  // Funciones de ejemplo para frutas
+  fruits: {
+    getFruitPrice: {
+      description: "Get the price of a fruit",
+      parameters: {
+        type: "object",
+        properties: {
+          name: {
+            type: "string",
+            description: "The name of the fruit",
+          },
+        },
+        required: ["name"],
+      },
+      handler: async (params) => {
+        const name = params.name.toLowerCase();
+        const fruitPrices = {
+          apple: "$6",
+          banana: "$4",
+          orange: "$3",
+          grape: "$8",
+        };
+
+        if (fruitPrices[name]) {
+          return { name, price: fruitPrices[name] };
+        }
+        return `Unrecognized fruit "${params.name}"`;
+      },
+    },
+  },
+
+  // Funciones de utilidades del sistema
+  system: {
+    getCurrentTime: {
+      description: "Get the current date and time",
+      parameters: {
+        type: "object",
+        properties: {},
+        required: [],
+      },
+      handler: async () => {
+        return {
+          timestamp: new Date().toISOString(),
+          formatted: new Date().toLocaleString(),
+        };
+      },
+    },
+
+    getWeather: {
+      description: "Get weather information for a location",
+      parameters: {
+        type: "object",
+        properties: {
+          location: {
+            type: "string",
+            description: "The location to get weather for",
+          },
+        },
+        required: ["location"],
+      },
+      handler: async (params) => {
+        // Simulado - en producción conectarías a una API real
+        return {
+          location: params.location,
+          temperature: "22°C",
+          condition: "Sunny",
+          humidity: "65%",
+        };
+      },
+    },
+
+    getOasisStats: {
+      description: "Get statistics about the Oasis network",
+      parameters: {
+        type: "object",
+        properties: {
+          metric: {
+            type: "string",
+            description: "The metric to retrieve (users, posts, tribes)",
+          },
+        },
+        required: ["metric"],
+      },
+      handler: async (params) => {
+        const stats = {
+          users: "1,247 active users",
+          posts: "15,623 posts this month",
+          tribes: "89 active tribes",
+        };
+
+        return stats[params.metric] || `No data for metric: ${params.metric}`;
+      },
+    },
+  },
+};
+/**
  * Chat wrapper personalizado para el modelo local
  */
 class MyCustomChatWrapper extends ChatWrapper {
@@ -69,7 +168,7 @@ class MyCustomChatWrapper extends ChatWrapper {
       contextText: LlamaText.joinValues("\n\n", texts),
       stopGenerationTriggers: [LlamaText(["### Human\n"])],
     };
-    
+
     console.log("With context", context);
     return context;
   }
@@ -102,7 +201,7 @@ class MyCustomChatWrapper extends ChatWrapper {
       "After calling a function, the raw result appears afterwards and is not part of the conversation.",
       "To make information be part of the conversation, the assistant paraphrases and repeats the information without the function syntax.",
     ]);
-    
+
     console.log("with llamaT", llamaT);
     return llamaT;
   }
@@ -118,6 +217,8 @@ export class LocalModelHandler {
     this.context = null;
     this.session = null;
     this.ready = false;
+    this.functions = new Map();
+    this.functionSets = ["fruits"];
   }
 
   async initialize() {
@@ -126,6 +227,7 @@ export class LocalModelHandler {
       return;
     }
 
+    this.initFunctions();
     const modelPath = path.join(__dirname, "..", "oasis-42-1-chat.Q4_K_M.gguf");
     if (!fs.existsSync(modelPath)) {
       throw new Error(`Model file not found at: ${modelPath}`);
@@ -135,7 +237,7 @@ export class LocalModelHandler {
     this.llamaInstance = await getLlama({ gpu: false });
     this.model = await this.llamaInstance.loadModel({ modelPath });
     this.context = await this.model.createContext();
-    
+
     this.session = new LlamaChatSession({
       contextSequence: this.context.getSequence(),
       chatWrapper: new MyCustomChatWrapper(),
@@ -145,16 +247,74 @@ export class LocalModelHandler {
     console.log("Local model initialized successfully");
   }
 
+  initFunctions() {
+    // Registrar sets de funciones solicitados
+    this.functionSets.forEach((setName) => {
+      if (LOCAL_FUNCTION_CONFIGS[setName]) {
+        this.registerFunctions(LOCAL_FUNCTION_CONFIGS[setName]);
+      } else {
+        console.warn(`Local function set '${setName}' not found`);
+      }
+    });
+    console.log(
+      "ROUTE FOR local_model_handler.mjs",
+      "initialize",
+      "Functions",
+      this.functions
+    );
+  }
+
   async chat(prompt, functions = null) {
     if (!this.ready) {
       await this.initialize();
     }
 
-    console.log("\nFinal prompt", prompt, "Functions: ", functions, "\n\n Going to local model");
+    console.log(
+      "\nFinal prompt",
+      prompt,
+      "Functions: ",
+      functions,
+      "\n\n Going to local model"
+    );
     const answer = await this.session.prompt(prompt, { functions });
     console.log("\n\nBack from local model", answer);
-    
+
     return answer;
+  }
+
+  /**
+   * Registrar una función
+   */
+  registerFunction(name, config) {
+    // Convertir al formato esperado por node-llama-cpp
+    const nodeLlamaFunction = {
+      description: config.description,
+      params: config.parameters,
+      handler: config.handler,
+    };
+
+    this.functions.set(name, nodeLlamaFunction);
+    console.log(`Local function registered: ${name}`);
+  }
+
+  /**
+   * Registrar múltiples funciones desde configuración
+   */
+  registerFunctions(functionsConfig) {
+    Object.entries(functionsConfig).forEach(([name, config]) => {
+      this.registerFunction(name, config);
+    });
+  }
+
+  /**
+   * Convertir funciones al formato de node-llama-cpp
+   */
+  getFunctionsForNodeLlama() {
+    const functionsObj = {};
+    this.functions.forEach((func, name) => {
+      functionsObj[name] = func;
+    });
+    return functionsObj;
   }
 }
 

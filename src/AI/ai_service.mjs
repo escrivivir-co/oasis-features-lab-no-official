@@ -59,11 +59,14 @@ async function getFunctionHandler(mode) {
   
   if (mode === 'prod') {
     if (!functionHandlerProd) {
+
+      console.log("ROUTE FOR local_model_handler.mjs")
       functionHandlerProd = await functionsPlugin.getLocalModelHandler();
     }
     return functionHandlerProd;
   } else if (mode === 'dev') {
     if (!functionHandlerDev) {
+       console.log("ROUTE FOR llama_functions_local.mjs")
       const modelPath = path.join(__dirname, 'oasis-42-1-chat.Q4_K_M.gguf');
       functionHandlerDev = functionsPlugin.createLocalLlamaHandler(modelPath, ['fruits', 'system'], { gpu: false });
       await functionHandlerDev.initialize();
