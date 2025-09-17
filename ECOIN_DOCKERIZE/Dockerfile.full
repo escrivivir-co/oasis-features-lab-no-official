@@ -1,0 +1,148 @@
+# ECOin Wallet Dockerized - Full Build Version
+# Downloads and compiles ECOin from source
+FROM debian:bookworm-slim
+
+LABEL maintainer="ECOin Dockerized"
+LABEL description="ECOin P2P Crypto-Currency Wallet and Daemon - Full Build"
+LABEL version="1.0.0"
+
+# Set environment variables
+ENV DEBIAN_FRONTEND=noninteractive
+ENV ECOIN_USER=ecoin
+ENV ECOIN_HOME=/home/ecoin
+ENV ECOIN_DATA=/home/ecoin/.ecoin
+
+# Update package list and install all dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    git \
+    wget \
+    curl \
+    unzip \
+    autoconf \
+    automake \
+    libtool \
+    pkg-config \
+    libssl-dev \
+    libssl3 \
+    libdb5.3-dev \
+    libdb5.3++-dev \
+    libleveldb-dev \
+    miniupnpc \
+    libminiupnpc-dev \
+    libqrencode-dev \
+    qt5-qmake \
+    qtbase5-dev \
+    qttools5-dev \
+    qttools5-dev-tools \
+    libboost-all-dev \
+    ca-certificates \
+    xvfb \
+    x11vnc \
+    fluxbox \
+    supervisor \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create ecoin user
+RUN useradd -m -s /bin/bash ${ECOIN_USER} && \
+    mkdir -p ${ECOIN_DATA} && \
+    chown -R ${ECOIN_USER}:${ECOIN_USER} ${ECOIN_HOME}
+
+# Switch to ecoin user
+USER ${ECOIN_USER}
+WORKDIR ${ECOIN_HOME}
+
+# Download ECOin source code using multiple methods
+RUN echo "Downloading ECOin source code..." && \
+    (wget -O ecoin.zip https://github.com/epsylon/ecoin/archive/refs/heads/main.zip || \
+     wget -O ecoin.zip https://github.com/epsylon/ecoin/archive/refs/heads/master.zip || \
+     curl -L -o ecoin.zip https://github.com/epsylon/ecoin/archive/refs/heads/main.zip || \
+     curl -L -o ecoin.zip https://github.com/epsylon/ecoin/archive/refs/heads/master.zip) && \
+    unzip ecoin.zip && \
+    mv ecoin-* ecoin-src && \
+    rm ecoin.zip && \
+    echo "Source code downloaded successfully"
+
+# List contents for debugging
+WORKDIR ${ECOIN_HOME}/ecoin-src/ecoin
+RUN echo "=== ECOin source structure ===" && \
+    ls -la && \
+    echo "=== src directory ===" && \
+    if [ -d "src" ]; then ls -la src/ | head -20; else echo "No src directory"; fi && \
+    echo "=== Looking for makefiles ===" && \
+    find . -name "makefile*" -o -name "Makefile*" 2>/dev/null || echo "No makefiles found"
+
+# Build ECOin daemon
+WORKDIR ${ECOIN_HOME}/ecoin-src/ecoin/src
+RUN echo "=== Building ECOin daemon ===" && \
+    echo "Found ECOin source, building with makefile.linux..." && \
+    make -f makefile.linux USE_UPNP=- USE_IPV6=- && \
+    strip ecoind && \
+    echo "ECOin daemon built successfully: $(ls -la ecoind)"
+
+# Build ECOin Qt wallet
+WORKDIR ${ECOIN_HOME}/ecoin-src/ecoin
+RUN echo "=== Building ECOin Qt wallet ===" && \
+    echo "Building Qt wallet with qmake..." && \
+    qmake ecoin-qt.pro && \
+    make -j$(nproc) && \
+    strip ecoin-qt && \
+    echo "ECOin Qt wallet built successfully: $(ls -la ecoin-qt)"
+
+# ECOin has built-in mining capability, no separate miner needed
+RUN echo "=== ECOin binaries built successfully ===" && \
+    echo "Daemon: $(ls -la src/ecoind)" && \
+    echo "Qt Wallet: $(ls -la ecoin-qt)"
+
+# Create symlinks for easier access
+WORKDIR ${ECOIN_HOME}
+RUN echo "=== Creating symlinks ===" && \
+    if [ -f "ecoin-src/ecoin/src/ecoind" ]; then \
+        ln -s ${ECOIN_HOME}/ecoin-src/ecoin/src/ecoind ./ecoind && \
+        echo "Linked real ecoind daemon"; \
+    elif [ -f "ecoin-src/ecoind" ]; then \
+        ln -s ${ECOIN_HOME}/ecoin-src/ecoind ./ecoind && \
+        echo "Linked ecoind daemon"; \
+    else \
+        echo "No ecoind found, creating stub link" && \
+        echo '#!/bin/bash' > ecoind && \
+        echo 'echo "ECOin daemon not available"' >> ecoind && \
+        chmod +x ecoind; \
+    fi && \
+    \
+    if [ -f "ecoin-src/ecoin/ecoin-qt" ]; then \
+        ln -s ${ECOIN_HOME}/ecoin-src/ecoin/ecoin-qt ./ecoin-qt && \
+        echo "Linked real Qt wallet"; \
+    elif [ -f "ecoin-src/ecoin-qt" ]; then \
+        ln -s ${ECOIN_HOME}/ecoin-src/ecoin-qt ./ecoin-qt && \
+        echo "Linked Qt wallet"; \
+    else \
+        echo "No ecoin-qt found, creating stub link" && \
+        echo '#!/bin/bash' > ecoin-qt && \
+        echo 'echo "ECOin Qt wallet not available"' >> ecoin-qt && \
+        chmod +x ecoin-qt; \
+    fi
+
+# Show final build results
+RUN echo "=== Build Summary ===" && \
+    echo "ecoind: $(if [ -x ecoind ]; then echo 'Available'; else echo 'Not available'; fi)" && \
+    echo "ecoin-qt: $(if [ -x ecoin-qt ]; then echo 'Available'; else echo 'Not available'; fi)"
+
+# Create data directory
+RUN mkdir -p ${ECOIN_DATA}
+
+# Expose ports
+EXPOSE 9333 9332 5900
+
+# Copy entrypoint script
+COPY --chown=${ECOIN_USER}:${ECOIN_USER} scripts/entrypoint.sh /usr/local/bin/entrypoint.sh
+USER root
+RUN chmod +x /usr/local/bin/entrypoint.sh
+USER ${ECOIN_USER}
+
+# Set volumes
+VOLUME ["${ECOIN_DATA}"]
+
+# Default command
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+CMD ["daemon"]

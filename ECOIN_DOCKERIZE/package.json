@@ -1,0 +1,82 @@
+{
+  "name": "ecoin-dockerized",
+  "version": "1.0.0",
+  "description": "ECOin P2P Crypto-Currency Wallet and Daemon - Dockerized",
+  "author": "ECOin Dockerized Team",
+  "license": "GPL-3.0",
+  "keywords": [
+    "ecoin",
+    "cryptocurrency",
+    "blockchain",
+    "wallet",
+    "docker",
+    "p2p"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/epsylon/ecoin"
+  },
+  "engines": {
+    "node": ">=14.0.0",
+    "npm": ">=6.0.0"
+  },
+  "scripts": {
+    "build": "docker-compose build --no-cache",
+    "build:quick": "docker-compose build",
+    "start": "docker-compose up -d",
+    "start:daemon": "docker-compose up -d ecoin-wallet",
+    "start:gui": "docker-compose up -d ecoin-gui",
+    "start:logs": "docker-compose up",
+    "stop": "docker-compose down",
+    "stop:remove": "docker-compose down --volumes --remove-orphans",
+    "restart": "npm run stop && npm run start",
+    "restart:daemon": "docker-compose restart ecoin-wallet",
+    "restart:gui": "docker-compose restart ecoin-gui",
+    "logs": "docker-compose logs -f",
+    "logs:daemon": "docker-compose logs -f ecoin-wallet",
+    "logs:gui": "docker-compose logs -f ecoin-gui",
+    "logs:tail": "docker-compose logs --tail=100 -f",
+    "status": "docker-compose ps",
+    "shell": "docker-compose exec ecoin-wallet /bin/bash",
+    "shell:gui": "docker-compose exec ecoin-gui /bin/bash",
+    "backup": "npm run backup:data",
+    "backup:data": "tar -czf ./backups/ecoin-data-$(date +%Y%m%d_%H%M%S).tar.gz -C ./volumes ecoin-data",
+    "restore:data": "echo 'Usage: npm run restore:data -- backup-file.tar.gz' && exit 1",
+    "clean": "npm run stop:remove && docker system prune -f",
+    "clean:all": "npm run stop:remove && docker system prune -af --volumes",
+    "health": "docker-compose exec ecoin-wallet /home/ecoin/ecoind getinfo",
+    "wallet:info": "docker-compose exec ecoin-wallet /home/ecoin/ecoind getinfo",
+    "wallet:balance": "docker-compose exec ecoin-wallet /home/ecoin/ecoind getbalance",
+    "wallet:address": "docker-compose exec ecoin-wallet /home/ecoin/ecoind getnewaddress",
+    "wallet:addresses": "docker-compose exec ecoin-wallet /home/ecoin/ecoind listreceivedbyaddress 0 true",
+    "miner:start": "docker-compose exec ecoin-wallet /home/ecoin/cpuminer --url=http://localhost:9332 --userpass=ecoinuser:ecoinpass123",
+    "network:peers": "docker-compose exec ecoin-wallet /home/ecoin/ecoind getpeerinfo",
+    "network:connections": "docker-compose exec ecoin-wallet /home/ecoin/ecoind getconnectioncount",
+    "rpc:help": "docker-compose exec ecoin-wallet /home/ecoin/ecoind help",
+    "setup": "npm run setup:dirs && npm run setup:config",
+    "setup:dirs": "mkdir -p volumes/ecoin-data volumes/ecoin-gui-data volumes/logs volumes/gui-logs backups",
+    "setup:config": "echo 'Setting up default configuration files...'",
+    "dev": "npm run build:quick && npm run start:logs",
+    "prod": "npm run build && npm run start",
+    "update": "git pull && npm run build && npm run restart",
+    "vnc:info": "echo 'VNC Daemon: localhost:5900' && echo 'VNC GUI: localhost:5901' && echo 'Default VNC password: ecoinvnc'",
+    "clone:psy:repo": "mkdir repos && git clone https://github.com/epsylon/ecoin.git ecoin-original",
+    "build:simple": "docker-compose -f docker-compose.yml build --no-cache",
+    "build:full": "docker-compose -f docker-compose.full.yml build --no-cache",
+    "switch:simple": "cp docker-compose.yml docker-compose.current.yml",
+    "switch:full": "cp docker-compose.full.yml docker-compose.yml",
+    "test:build": "npm run build:simple && npm run start && sleep 10 && npm run status && npm run stop"
+  },
+  "config": {
+    "ecoin": {
+      "rpc_port": 9332,
+      "p2p_port": 9333,
+      "vnc_port": 5900,
+      "gui_vnc_port": 5901
+    }
+  },
+  "dependencies": {},
+  "devDependencies": {},
+  "optionalDependencies": {},
+  "peerDependencies": {}
+}

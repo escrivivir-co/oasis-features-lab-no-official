@@ -1,0 +1,89 @@
+# ECOin Wallet Dockerized - Simplified Version
+# Uses pre-built binaries or simplified build process
+FROM debian:bookworm-slim
+
+LABEL maintainer="ECOin Dockerized"
+LABEL description="ECOin P2P Crypto-Currency Wallet and Daemon - Simplified"
+LABEL version="1.0.0"
+
+# Set environment variables
+ENV DEBIAN_FRONTEND=noninteractive
+ENV ECOIN_USER=ecoin
+ENV ECOIN_HOME=/home/ecoin
+ENV ECOIN_DATA=/home/ecoin/.ecoin
+
+# Update package list and install runtime dependencies only
+RUN apt-get update && apt-get install -y \
+    libssl3 \
+    libdb5.3++ \
+    libleveldb1d \
+    libminiupnpc17 \
+    libqrencode4 \
+    qtbase5-dev \
+    wget \
+    curl \
+    ca-certificates \
+    xvfb \
+    x11vnc \
+    fluxbox \
+    supervisor \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create ecoin user
+RUN useradd -m -s /bin/bash ${ECOIN_USER} && \
+    mkdir -p ${ECOIN_DATA} && \
+    chown -R ${ECOIN_USER}:${ECOIN_USER} ${ECOIN_HOME}
+
+# Switch to ecoin user
+USER ${ECOIN_USER}
+WORKDIR ${ECOIN_HOME}
+
+# Create simple stub binaries for now (will be replaced with real ones later)
+RUN mkdir -p bin && \
+    echo '#!/bin/bash' > bin/ecoind && \
+    echo 'echo "ECOin daemon starting..."' >> bin/ecoind && \
+    echo 'echo "This is a stub implementation"' >> bin/ecoind && \
+    echo 'echo "Real daemon will be built in a future version"' >> bin/ecoind && \
+    echo 'sleep infinity' >> bin/ecoind && \
+    chmod +x bin/ecoind && \
+    \
+    echo '#!/bin/bash' > bin/ecoin-qt && \
+    echo 'echo "ECOin Qt wallet starting..."' >> bin/ecoin-qt && \
+    echo 'echo "This is a stub implementation"' >> bin/ecoin-qt && \
+    echo 'echo "Real Qt wallet will be built in a future version"' >> bin/ecoin-qt && \
+    echo 'sleep infinity' >> bin/ecoin-qt && \
+    chmod +x bin/ecoin-qt && \
+    \
+    echo '#!/bin/bash' > bin/cpuminer && \
+    echo 'echo "ECOin CPU miner starting..."' >> bin/cpuminer && \
+    echo 'echo "This is a stub implementation"' >> bin/cpuminer && \
+    echo 'echo "Real miner will be built in a future version"' >> bin/cpuminer && \
+    echo 'sleep infinity' >> bin/cpuminer && \
+    chmod +x bin/cpuminer
+
+# Create symlinks for easier access
+RUN ln -s ${ECOIN_HOME}/bin/ecoind ./ecoind && \
+    ln -s ${ECOIN_HOME}/bin/ecoin-qt ./ecoin-qt && \
+    ln -s ${ECOIN_HOME}/bin/cpuminer ./cpuminer
+
+# Create data directory
+RUN mkdir -p ${ECOIN_DATA}
+
+# Expose ports
+# 9333: ECOin P2P network port
+# 9332: ECOin RPC port
+# 5900: VNC port for GUI access
+EXPOSE 9333 9332 5900
+
+# Copy entrypoint script
+COPY --chown=${ECOIN_USER}:${ECOIN_USER} scripts/entrypoint.sh /usr/local/bin/entrypoint.sh
+USER root
+RUN chmod +x /usr/local/bin/entrypoint.sh
+USER ${ECOIN_USER}
+
+# Set volumes
+VOLUME ["${ECOIN_DATA}"]
+
+# Default command
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+CMD ["daemon"]
