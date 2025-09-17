@@ -1,0 +1,59 @@
+# =============================================================================
+# OASIS Docker Compose - Configuración Limpia Integrada
+# Versión unificada que integra todos los scripts nativos
+# =============================================================================
+
+services:
+  oasis:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: oasis-server
+    ports:
+      - "8008:8008"   # Puerto SSB
+      - "3000:3000"   # Puerto cliente web
+    volumes:
+      # Volumenes persistentes para datos críticos
+      - oasis-ssb-keys:/home/oasis/.ssb
+      - oasis-ai-models:/app/src/AI/models
+      - oasis-logs:/app/logs
+      
+      # Volumen de desarrollo opcional (descomenta para desarrollo)
+      # - ./src:/app/src:ro
+    environment:
+      - NODE_ENV=production
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+# Volumenes persistentes nombrados
+volumes:
+  oasis-ssb-keys:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./volumes/ssb-keys
+  
+  oasis-ai-models:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./volumes/ai-models
+  
+  oasis-logs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./volumes/logs
+
+# Red personalizada (opcional para futura expansión)
+networks:
+  default:
+    name: oasis-network

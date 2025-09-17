@@ -12,7 +12,11 @@ module.exports = ({ host, port, middleware, allowHost }) => {
   const validHosts = [];
 
   const isValidRequest = (request) => {
-    if (validHosts.includes(request.hostname) !== true) {
+    // Lista temporal de hosts válidos para Docker antes de que el servidor termine de inicializarse
+    const tempValidHosts = ['localhost', '127.0.0.1', '::1', '0.0.0.0'];
+    const allValidHosts = [...validHosts, ...tempValidHosts];
+    
+    if (allValidHosts.includes(request.hostname) !== true) {
       return false;
     }
     if (request.method !== "GET") {
@@ -22,7 +26,7 @@ module.exports = ({ host, port, middleware, allowHost }) => {
 
       try {
         const refererUrl = new URL(request.header.referer);
-        if (validHosts.includes(refererUrl.hostname) !== true) {
+        if (allValidHosts.includes(refererUrl.hostname) !== true) {
           return false;
         }
 
@@ -110,6 +114,13 @@ module.exports = ({ host, port, middleware, allowHost }) => {
     }
 
     validHosts.push(address.address);
+
+    // Para Docker: si el servidor está binding a 0.0.0.0, también aceptar localhost
+    if (address.address === "0.0.0.0" || address.address === "::") {
+      validHosts.push("localhost");
+      validHosts.push("127.0.0.1");
+      validHosts.push("::1");
+    }
 
     if (validHosts.includes(host) === false) {
       validHosts.push(host);

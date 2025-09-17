@@ -28,7 +28,7 @@ let lastError = null;
 
 async function initModel() {
   if (model) return;
-  const modelPath = path.join(__dirname, 'oasis-42-1-chat.Q4_K_M.gguf');
+  const modelPath = path.join(__dirname, 'models', 'oasis-42-1-chat.Q4_K_M.gguf');
   if (!fs.existsSync(modelPath)) {
     throw new Error(`Model file not found at: ${modelPath}`);
   }

@@ -495,7 +495,13 @@ try {
 const readmePath = path.join(__dirname, "..", ".." ,"README.md");
 const packagePath = path.join(__dirname, "..", "server", "package.json");
 
-const readme = fs.readFileSync(readmePath, "utf8");
+// Leer README.md con fallback si no existe
+let readme;
+try {
+    readme = fs.readFileSync(readmePath, "utf8");
+} catch (err) {
+    readme = "# OASIS\n\nDecentralized social network built on SSB.\n\nDockerized version running successfully.";
+}
 const version = JSON.parse(fs.readFileSync(packagePath, "utf8")).version;
 
 const nullImageId = '&0000000000000000000000000000000000000000000=.sha256';
