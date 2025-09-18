@@ -14,7 +14,7 @@ services:
       - "3000:3000"   # Puerto cliente web
     volumes:
       # Volumenes persistentes para datos críticos
-      - oasis-ssb-keys:/home/oasis/.ssb
+      - oasis-ssb-data:/home/oasis/.ssb
       - oasis-ai-models:/app/src/AI/models
       - oasis-logs:/app/logs
       
@@ -32,12 +32,12 @@ services:
 
 # Volumenes persistentes nombrados
 volumes:
-  oasis-ssb-keys:
+  oasis-ssb-data:
     driver: local
     driver_opts:
       type: none
       o: bind
-      device: ./volumes/ssb-keys
+      device: ./volumes/ssb-data
   
   oasis-ai-models:
     driver: local

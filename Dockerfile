@@ -12,6 +12,7 @@ RUN apt-get update && apt-get install -y \
     python3 \
     python3-pip \
     build-essential \
+    dos2unix \
     && rm -rf /var/lib/apt/lists/*
 
 # Crear usuario oasis
@@ -23,8 +24,8 @@ WORKDIR /app
 # Copiar código fuente completo
 COPY --chown=oasis:oasis . .
 
-# Dar permisos al entrypoint
-RUN chmod +x docker-entrypoint.sh
+# Convertir line endings y dar permisos al entrypoint
+RUN dos2unix docker-entrypoint.sh && chmod +x docker-entrypoint.sh
 
 # Cambiar al usuario oasis ANTES de instalar dependencias
 USER oasis

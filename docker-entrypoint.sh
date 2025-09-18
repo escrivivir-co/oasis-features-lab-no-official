@@ -14,7 +14,6 @@ MODEL_PATH="$MODEL_DIR/$MODEL_FILE"
 CONFIG_FILE="$CURRENT_DIR/src/configs/oasis-config.json"
 
 # Configurar directorios necesarios
-mkdir -p /home/oasis/.ssb/{db,blobs}
 mkdir -p "$MODEL_DIR"
 mkdir -p "$CURRENT_DIR/logs"
 
@@ -383,54 +382,7 @@ check_and_recover_ssb() {
     
     # Ejecutar recuperación si es necesaria
     if [ "$RECOVERY_NEEDED" = true ]; then
-        echo "🚨 Corrupción detectada en SSB - iniciando recuperación automática..."
-        
-        # Hacer backup si hay datos existentes
-        if [ -d "$SSB_PATH" ] && [ "$(ls -A $SSB_PATH 2>/dev/null)" ]; then
-            local backup_dir="/app/backup/ssb-$(date +%Y%m%d-%H%M%S)"
-            echo "📦 Creando backup en $backup_dir..."
-            mkdir -p "$backup_dir"
-            cp -r "$SSB_PATH"/* "$backup_dir/" 2>/dev/null || true
-        fi
-        
-        # Ejecutar script de recuperación
-        if [ -f "/app/docker-scripts/ssb-recovery.sh" ]; then
-            echo "🔧 Ejecutando script de recuperación SSB..."
-            chmod +x /app/docker-scripts/ssb-recovery.sh
-            /app/docker-scripts/ssb-recovery.sh
-        else
-            echo "🔧 Script de recuperación no encontrado, recuperación manual..."
-            
-            # Crear estructura básica manualmente
-            mkdir -p "${required_dirs[@]}"
-            
-            # Crear archivos JSON básicos
-            for file in "${required_files[@]}"; do
-                if [ ! -f "$file" ]; then
-                    echo "[]" > "$file"
-                fi
-            done
-            
-            # Limpiar directorios LevelDB corruptos
-            for db_dir in "${leveldb_dirs[@]}"; do
-                if [ -d "$db_dir" ]; then
-                    rm -rf "$db_dir"
-                    mkdir -p "$db_dir"
-                fi
-            done
-        fi
-        
-        # Limpiar socket Unix si existe y es problemático
-        if [ -S "$SSB_PATH/socket" ] || [ -e "$SSB_PATH/socket" ]; then
-            echo "  🧹 Limpiando socket Unix existente..."
-            rm -f "$SSB_PATH/socket"
-        fi
-        
-        # Asegurar permisos correctos
-        chown -R oasis:oasis "$SSB_PATH"
-        chmod -R 755 "$SSB_PATH"
-        
-        echo "✅ Recuperación SSB completada"
+        echo "✅ Base de datos SSB no inicializada!"
     else
         echo "✅ Base de datos SSB verificada - no se requiere recuperación"
         
