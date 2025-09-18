@@ -12,6 +12,7 @@ services:
     ports:
       - "8008:8008"   # Puerto SSB
       - "3000:3000"   # Puerto cliente web
+      - "4001:4001"   # Puerto servicio AI
     volumes:
       # Volumenes persistentes para datos críticos
       - oasis-ssb-data:/home/oasis/.ssb

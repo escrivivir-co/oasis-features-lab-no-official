@@ -480,7 +480,19 @@ case "$MODE" in
         exec node backend.js --host 0.0.0.0
         ;;
     "full"|*)
-        echo "🚀 Iniciando servidor completo (SSB + Cliente)..."
+        echo "🚀 Iniciando servidor completo (SSB + Cliente + AI)..."
+        
+        # Iniciar servicio AI standalone en background si el modelo existe
+        if [ -f "$MODEL_PATH" ]; then
+            echo "🤖 Iniciando servicio AI Standalone en puerto 4001..."
+            cd "$CURRENT_DIR/src/AI"
+            node ai_service_standalone.mjs &
+            AI_PID=$!
+            echo "   → AI Standalone PID: $AI_PID"
+            sleep 2  # Dar tiempo para que arranque
+        else
+            echo "⚠ Modelo AI no encontrado - servicio AI deshabilitado"
+        fi
         
         # Iniciar backend.js que incluye tanto SSB como cliente web
         cd "$CURRENT_DIR/src/backend"
