@@ -1,0 +1,104 @@
+services:
+  ecoin-wallet:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+      args:
+        ECOIN_BUILD_MODE: ${ECOIN_BUILD_MODE:-source}
+    container_name: ecoin-wallet
+    hostname: ecoin-wallet
+    restart: unless-stopped
+    
+    # Network configuration - allows access from host and other containers
+    ports:
+      - "9333:9333"  # P2P network port
+      - "9332:9332"  # RPC port
+      - "5900:5900"  # VNC port for GUI access (optional)
+    
+    # Persistent volumes mounted at project root
+    volumes:
+      - ./volumes/ecoin-data:/home/ecoin/.ecoin
+      - ./volumes/logs:/var/log/ecoin
+    
+    # Environment variables
+    environment:
+      - ECOIN_MODE=${ECOIN_MODE:-daemon}
+      - ECOIN_RPC_USER=${ECOIN_RPC_USER:-ecoinuser}
+      - ECOIN_RPC_PASSWORD=${ECOIN_RPC_PASSWORD:-ecoinpass123}
+      - ECOIN_RPC_BIND=${ECOIN_RPC_BIND:-0.0.0.0}
+      - ECOIN_RPC_PORT=${ECOIN_RPC_PORT:-9332}
+      - ECOIN_P2P_PORT=${ECOIN_P2P_PORT:-9333}
+      - DISPLAY=:1
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "pgrep", "-f", "ecoind"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    
+    # Security
+    user: "1000:1000"
+    
+    # Network
+    networks:
+      - ecoin-network
+
+  # Optional: ECOin GUI service with VNC access
+  ecoin-gui:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+      args:
+        ECOIN_BUILD_MODE: ${ECOIN_BUILD_MODE:-source}
+    container_name: ecoin-gui
+    hostname: ecoin-gui
+    restart: unless-stopped
+    
+    ports:
+      - "5901:5900"  # VNC port for GUI
+      - "9334:9333"  # P2P port (different from daemon)
+    
+    volumes:
+      - ./volumes/ecoin-gui-data:/home/ecoin/.ecoin
+      - ./volumes/gui-logs:/var/log/ecoin
+    
+    environment:
+      - ECOIN_MODE=gui
+      - ECOIN_RPC_USER=${ECOIN_RPC_USER:-ecoinuser}
+      - ECOIN_RPC_PASSWORD=${ECOIN_RPC_PASSWORD:-ecoinpass123}
+      - ECOIN_RPC_BIND=${ECOIN_RPC_BIND:-0.0.0.0}
+      - ECOIN_RPC_PORT=${ECOIN_RPC_PORT:-9332}
+      - ECOIN_P2P_PORT=${ECOIN_P2P_PORT:-9333}
+      - DISPLAY=:1
+    
+    networks:
+      - ecoin-network
+    
+    depends_on:
+      - ecoin-wallet
+
+# Networks
+networks:
+  ecoin-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+# Named volumes for easier management
+volumes:
+  ecoin-data:
+    driver: local
+    driver_opts:
+      type: none
+      device: ${PWD}/volumes/ecoin-data
+      o: bind
+  
+  ecoin-gui-data:
+    driver: local
+    driver_opts:
+      type: none
+      device: ${PWD}/volumes/ecoin-gui-data
+      o: bind
