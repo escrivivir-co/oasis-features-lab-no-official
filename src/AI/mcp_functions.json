@@ -1,0 +1,720 @@
+{
+  "metadata": {
+    "server": {
+      "name": "mcp-server",
+      "version": "unknown",
+      "description": "",
+      "capabilities": {}
+    },
+    "stats": {
+      "toolsCount": 20,
+      "resourcesCount": 7,
+      "promptsCount": 3
+    },
+    "tools": [
+      {
+        "name": "list_prompts",
+        "description": "Listar todos los prompts disponibles en el servidor",
+        "functionName": "localhost.list_prompts",
+        "hasSchema": true,
+        "parameterCount": 2
+      },
+      {
+        "name": "add_prompt",
+        "description": "Añadir un nuevo prompt al servidor",
+        "functionName": "localhost.add_prompt",
+        "hasSchema": true,
+        "parameterCount": 6
+      },
+      {
+        "name": "edit_prompt",
+        "description": "Editar un prompt existente",
+        "functionName": "localhost.edit_prompt",
+        "hasSchema": true,
+        "parameterCount": 6
+      },
+      {
+        "name": "delete_prompt",
+        "description": "Eliminar un prompt del servidor",
+        "functionName": "localhost.delete_prompt",
+        "hasSchema": true,
+        "parameterCount": 1
+      },
+      {
+        "name": "get_prompt",
+        "description": "Recuperar un prompt específico por ID",
+        "functionName": "localhost.get_prompt",
+        "hasSchema": true,
+        "parameterCount": 1
+      },
+      {
+        "name": "list_resources",
+        "description": "Listar todos los recursos disponibles en el servidor",
+        "functionName": "localhost.list_resources",
+        "hasSchema": true,
+        "parameterCount": 2
+      },
+      {
+        "name": "add_resource",
+        "description": "Añadir un nuevo recurso al servidor",
+        "functionName": "localhost.add_resource",
+        "hasSchema": true,
+        "parameterCount": 7
+      },
+      {
+        "name": "edit_resource",
+        "description": "Editar un recurso existente",
+        "functionName": "localhost.edit_resource",
+        "hasSchema": true,
+        "parameterCount": 5
+      },
+      {
+        "name": "delete_resource",
+        "description": "Eliminar un recurso del servidor",
+        "functionName": "localhost.delete_resource",
+        "hasSchema": true,
+        "parameterCount": 1
+      },
+      {
+        "name": "get_resource",
+        "description": "Recuperar un recurso específico por ID",
+        "functionName": "localhost.get_resource",
+        "hasSchema": true,
+        "parameterCount": 1
+      },
+      {
+        "name": "start_system",
+        "description": "Arrancar el sistema usando npm start",
+        "functionName": "localhost.start_system",
+        "hasSchema": true,
+        "parameterCount": 2
+      },
+      {
+        "name": "open_web_console",
+        "description": "Abrir la consola web en el navegador",
+        "functionName": "localhost.open_web_console",
+        "hasSchema": true,
+        "parameterCount": 2
+      },
+      {
+        "name": "get_server_status",
+        "description": "Obtener el estado actual del servidor",
+        "functionName": "localhost.get_server_status",
+        "hasSchema": true,
+        "parameterCount": 0
+      },
+      {
+        "name": "get_server_info",
+        "description": "Obtener información detallada del servidor",
+        "functionName": "localhost.get_server_info",
+        "hasSchema": true,
+        "parameterCount": 0
+      },
+      {
+        "name": "set_user_personality",
+        "description": "Change UserSimulator personality and behavior",
+        "functionName": "localhost.set_user_personality",
+        "hasSchema": true,
+        "parameterCount": 2
+      },
+      {
+        "name": "simulate_user_decision",
+        "description": "Simulate user consumption decision intelligently",
+        "functionName": "localhost.simulate_user_decision",
+        "hasSchema": true,
+        "parameterCount": 2
+      },
+      {
+        "name": "simulate_agent_selection",
+        "description": "Select specific agent for next message",
+        "functionName": "localhost.simulate_agent_selection",
+        "hasSchema": true,
+        "parameterCount": 2
+      },
+      {
+        "name": "control_simulator_mode",
+        "description": "Enable/disable automatic UserSimulator mode",
+        "functionName": "localhost.control_simulator_mode",
+        "hasSchema": true,
+        "parameterCount": 2
+      },
+      {
+        "name": "get_simulator_status",
+        "description": "Get current UserSimulator status and statistics",
+        "functionName": "localhost.get_simulator_status",
+        "hasSchema": true,
+        "parameterCount": 1
+      },
+      {
+        "name": "analyze_game_context",
+        "description": "Analyze current game state for intelligent decisions",
+        "functionName": "localhost.analyze_game_context",
+        "hasSchema": true,
+        "parameterCount": 1
+      }
+    ],
+    "generatedAt": "2025-09-19T21:18:38.242Z",
+    "transformer": {
+      "version": "1.0.0",
+      "serverPrefix": "localhost"
+    }
+  },
+  "functions": {
+    "localhost": {
+      "list_prompts": {
+        "description": "Listar todos los prompts disponibles en el servidor",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "category": {
+              "type": "string",
+              "description": "Filtrar por categoría"
+            },
+            "search": {
+              "type": "string",
+              "description": "Buscar en nombre o descripción"
+            }
+          },
+          "required": []
+        },
+        "handler": null,
+        "meta": {
+          "originalToolName": "list_prompts",
+          "serverName": "localhost",
+          "mcpTool": true
+        }
+      },
+      "add_prompt": {
+        "description": "Añadir un nuevo prompt al servidor",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "ID único del prompt"
+            },
+            "name": {
+              "type": "string",
+              "description": "Nombre del prompt"
+            },
+            "description": {
+              "type": "string",
+              "description": "Descripción del prompt"
+            },
+            "content": {
+              "type": "string",
+              "description": "Contenido del prompt"
+            },
+            "parameters": {
+              "type": "object",
+              "additionalProperties": {},
+              "description": "Parámetros del prompt"
+            },
+            "metadata": {
+              "type": "object",
+              "additionalProperties": {},
+              "description": "Metadatos adicionales"
+            }
+          },
+          "required": [
+            "id",
+            "name",
+            "description",
+            "content"
+          ]
+        },
+        "handler": null,
+        "meta": {
+          "originalToolName": "add_prompt",
+          "serverName": "localhost",
+          "mcpTool": true
+        }
+      },
+      "edit_prompt": {
+        "description": "Editar un prompt existente",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "ID del prompt a editar"
+            },
+            "name": {
+              "type": "string",
+              "description": "Nuevo nombre"
+            },
+            "description": {
+              "type": "string",
+              "description": "Nueva descripción"
+            },
+            "content": {
+              "type": "string",
+              "description": "Nuevo contenido"
+            },
+            "parameters": {
+              "type": "object",
+              "additionalProperties": {},
+              "description": "Nuevos parámetros"
+            },
+            "metadata": {
+              "type": "object",
+              "additionalProperties": {},
+              "description": "Nuevos metadatos"
+            }
+          },
+          "required": [
+            "id"
+          ]
+        },
+        "handler": null,
+        "meta": {
+          "originalToolName": "edit_prompt",
+          "serverName": "localhost",
+          "mcpTool": true
+        }
+      },
+      "delete_prompt": {
+        "description": "Eliminar un prompt del servidor",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "ID del prompt a eliminar"
+            }
+          },
+          "required": [
+            "id"
+          ]
+        },
+        "handler": null,
+        "meta": {
+          "originalToolName": "delete_prompt",
+          "serverName": "localhost",
+          "mcpTool": true
+        }
+      },
+      "get_prompt": {
+        "description": "Recuperar un prompt específico por ID",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "ID del prompt a recuperar"
+            }
+          },
+          "required": [
+            "id"
+          ]
+        },
+        "handler": null,
+        "meta": {
+          "originalToolName": "get_prompt",
+          "serverName": "localhost",
+          "mcpTool": true
+        }
+      },
+      "list_resources": {
+        "description": "Listar todos los recursos disponibles en el servidor",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "category": {
+              "type": "string",
+              "description": "Filtrar por categoría"
+            },
+            "search": {
+              "type": "string",
+              "description": "Buscar en nombre o descripción"
+            }
+          },
+          "required": []
+        },
+        "handler": null,
+        "meta": {
+          "originalToolName": "list_resources",
+          "serverName": "localhost",
+          "mcpTool": true
+        }
+      },
+      "add_resource": {
+        "description": "Añadir un nuevo recurso al servidor",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "ID único del recurso"
+            },
+            "name": {
+              "type": "string",
+              "description": "Nombre del recurso"
+            },
+            "description": {
+              "type": "string",
+              "description": "Descripción del recurso"
+            },
+            "uri": {
+              "type": "string",
+              "description": "URI del recurso"
+            },
+            "mimeType": {
+              "type": "string",
+              "description": "Tipo MIME del recurso"
+            },
+            "content": {
+              "type": "string",
+              "description": "Contenido del recurso"
+            },
+            "metadata": {
+              "type": "object",
+              "additionalProperties": {},
+              "description": "Metadatos adicionales"
+            }
+          },
+          "required": [
+            "id",
+            "name",
+            "description",
+            "uri",
+            "mimeType",
+            "content"
+          ]
+        },
+        "handler": null,
+        "meta": {
+          "originalToolName": "add_resource",
+          "serverName": "localhost",
+          "mcpTool": true
+        }
+      },
+      "edit_resource": {
+        "description": "Editar un recurso existente",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "ID del recurso a editar"
+            },
+            "name": {
+              "type": "string",
+              "description": "Nuevo nombre"
+            },
+            "description": {
+              "type": "string",
+              "description": "Nueva descripción"
+            },
+            "content": {
+              "type": "string",
+              "description": "Nuevo contenido"
+            },
+            "metadata": {
+              "type": "object",
+              "additionalProperties": {},
+              "description": "Nuevos metadatos"
+            }
+          },
+          "required": [
+            "id"
+          ]
+        },
+        "handler": null,
+        "meta": {
+          "originalToolName": "edit_resource",
+          "serverName": "localhost",
+          "mcpTool": true
+        }
+      },
+      "delete_resource": {
+        "description": "Eliminar un recurso del servidor",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "ID del recurso a eliminar"
+            }
+          },
+          "required": [
+            "id"
+          ]
+        },
+        "handler": null,
+        "meta": {
+          "originalToolName": "delete_resource",
+          "serverName": "localhost",
+          "mcpTool": true
+        }
+      },
+      "get_resource": {
+        "description": "Recuperar un recurso específico por ID",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "ID del recurso a recuperar"
+            }
+          },
+          "required": [
+            "id"
+          ]
+        },
+        "handler": null,
+        "meta": {
+          "originalToolName": "get_resource",
+          "serverName": "localhost",
+          "mcpTool": true
+        }
+      },
+      "start_system": {
+        "description": "Arrancar el sistema usando npm start",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "environment": {
+              "type": "string",
+              "description": "Entorno de ejecución"
+            },
+            "verbose": {
+              "type": "boolean",
+              "description": "Salida detallada"
+            }
+          },
+          "required": []
+        },
+        "handler": null,
+        "meta": {
+          "originalToolName": "start_system",
+          "serverName": "localhost",
+          "mcpTool": true
+        }
+      },
+      "open_web_console": {
+        "description": "Abrir la consola web en el navegador",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "host": {
+              "type": "string",
+              "default": "localhost",
+              "description": "Host del servidor"
+            },
+            "port": {
+              "type": "number",
+              "default": 8080,
+              "description": "Puerto del servidor web"
+            }
+          },
+          "required": []
+        },
+        "handler": null,
+        "meta": {
+          "originalToolName": "open_web_console",
+          "serverName": "localhost",
+          "mcpTool": true
+        }
+      },
+      "get_server_status": {
+        "description": "Obtener el estado actual del servidor",
+        "parameters": {
+          "type": "object",
+          "properties": {},
+          "required": []
+        },
+        "handler": null,
+        "meta": {
+          "originalToolName": "get_server_status",
+          "serverName": "localhost",
+          "mcpTool": true
+        }
+      },
+      "get_server_info": {
+        "description": "Obtener información detallada del servidor",
+        "parameters": {
+          "type": "object",
+          "properties": {},
+          "required": []
+        },
+        "handler": null,
+        "meta": {
+          "originalToolName": "get_server_info",
+          "serverName": "localhost",
+          "mcpTool": true
+        }
+      },
+      "set_user_personality": {
+        "description": "Change UserSimulator personality and behavior",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "personality": {
+              "type": "string",
+              "enum": [
+                "cautious",
+                "balanced",
+                "risk_taker",
+                "passive"
+              ],
+              "description": "UserSimulator personality"
+            },
+            "reason": {
+              "type": "string",
+              "description": "Reason for personality change"
+            }
+          },
+          "required": [
+            "personality"
+          ]
+        },
+        "handler": null,
+        "meta": {
+          "originalToolName": "set_user_personality",
+          "serverName": "localhost",
+          "mcpTool": true
+        }
+      },
+      "simulate_user_decision": {
+        "description": "Simulate user consumption decision intelligently",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "forceDecision": {
+              "type": "string",
+              "enum": [
+                "yes",
+                "no",
+                "clarify",
+                "auto"
+              ],
+              "description": "Force specific decision or use auto"
+            },
+            "context": {
+              "type": "object",
+              "properties": {
+                "currentX": {
+                  "type": "number"
+                },
+                "messageCount": {
+                  "type": "number"
+                },
+                "recentReset": {
+                  "type": "boolean"
+                }
+              },
+              "additionalProperties": false,
+              "description": "Game context for decision"
+            }
+          },
+          "required": []
+        },
+        "handler": null,
+        "meta": {
+          "originalToolName": "simulate_user_decision",
+          "serverName": "localhost",
+          "mcpTool": true
+        }
+      },
+      "simulate_agent_selection": {
+        "description": "Select specific agent for next message",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "agentId": {
+              "type": "string",
+              "description": "ID of agent to select"
+            },
+            "reasoning": {
+              "type": "string",
+              "description": "Reasoning for selection"
+            }
+          },
+          "required": [
+            "agentId"
+          ]
+        },
+        "handler": null,
+        "meta": {
+          "originalToolName": "simulate_agent_selection",
+          "serverName": "localhost",
+          "mcpTool": true
+        }
+      },
+      "control_simulator_mode": {
+        "description": "Enable/disable automatic UserSimulator mode",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "type": "string",
+              "enum": [
+                "on",
+                "off",
+                "toggle"
+              ],
+              "description": "Simulator mode control"
+            },
+            "duration": {
+              "type": "number",
+              "description": "Duration in milliseconds for temporary mode"
+            }
+          },
+          "required": [
+            "mode"
+          ]
+        },
+        "handler": null,
+        "meta": {
+          "originalToolName": "control_simulator_mode",
+          "serverName": "localhost",
+          "mcpTool": true
+        }
+      },
+      "get_simulator_status": {
+        "description": "Get current UserSimulator status and statistics",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "includeHistory": {
+              "type": "boolean",
+              "description": "Include activity history"
+            }
+          },
+          "required": []
+        },
+        "handler": null,
+        "meta": {
+          "originalToolName": "get_simulator_status",
+          "serverName": "localhost",
+          "mcpTool": true
+        }
+      },
+      "analyze_game_context": {
+        "description": "Analyze current game state for intelligent decisions",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "includeRecommendations": {
+              "type": "boolean",
+              "description": "Include strategic recommendations"
+            }
+          },
+          "required": []
+        },
+        "handler": null,
+        "meta": {
+          "originalToolName": "analyze_game_context",
+          "serverName": "localhost",
+          "mcpTool": true
+        }
+      }
+    }
+  },
+  "generatedAt": "2025-09-19T21:18:38.242Z",
+  "command": {
+    "server": "http://localhost:3003",
+    "transport": "http"
+  }
+}

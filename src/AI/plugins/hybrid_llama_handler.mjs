@@ -1,0 +1,244 @@
+import { LocalLlamaFunctionHandler, LOCAL_FUNCTION_CONFIGS } from './llama_functions_local.mjs';
+import { getMCPFunctionHandler } from './mcp_function_handler.mjs';
+
+/**
+ * Handler híbrido que combina funciones locales con funciones MCP
+ */
+export class HybridLlamaFunctionHandler extends LocalLlamaFunctionHandler {
+  constructor(config = {}) {
+    super(config);
+    this.mcpHandler = getMCPFunctionHandler();
+    this.mcpServers = new Map(); // serverName -> config
+  }
+
+  /**
+   * Registrar un servidor MCP adicional
+   */
+  async registerMCPServer(serverName, serverConfig, transportType = 'http') {
+    try {
+      const result = await this.mcpHandler.registerServer(serverName, serverConfig, transportType);
+      this.mcpServers.set(result.serverName, {
+        config: serverConfig,
+        transportType,
+        toolsCount: result.toolsCount
+      });
+      
+      console.log(`✅ Servidor MCP ${result.serverName} registrado en handler híbrido`);
+      return result;
+    } catch (error) {
+      console.error(`❌ Error registrando servidor MCP ${serverName}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Obtener todas las funciones (locales + MCP) para node-llama-cpp
+   */
+  getFunctionsForNodeLlama() {
+    // Empezar con funciones locales
+    const localFunctions = super.getFunctionsForNodeLlama();
+    
+    // Añadir funciones MCP
+    const mcpFunctions = this.mcpHandler.getAllFunctions();
+    
+    // Combinar ambos tipos
+    const allFunctions = { ...localFunctions };
+    
+    // Integrar funciones MCP con el formato correcto
+    for (const [serverName, serverFunctions] of Object.entries(mcpFunctions)) {
+      for (const [toolName, functionDef] of Object.entries(serverFunctions)) {
+        // Crear función con prefijo del servidor
+        const fullFunctionName = `${serverName}_${toolName}`;
+        
+        allFunctions[fullFunctionName] = {
+          description: functionDef.description,
+          parameters: functionDef.parameters,
+          handler: functionDef.handler
+        };
+      }
+    }
+    
+    return allFunctions;
+  }
+
+  /**
+   * Registrar funciones locales y MCP desde configuración
+   */
+  async registerAllFunctions(localFunctionSets = [], mcpServers = []) {
+    // Registrar funciones locales
+    if (localFunctionSets.length > 0) {
+      localFunctionSets.forEach(setName => {
+        if (LOCAL_FUNCTION_CONFIGS[setName]) {
+          this.registerFunctions({ [setName]: LOCAL_FUNCTION_CONFIGS[setName] });
+          console.log(`✅ Funciones locales registradas: ${setName}`);
+        } else {
+          console.warn(`⚠️ Set de funciones desconocido: ${setName}`);
+        }
+      });
+    }
+
+    // Registrar servidores MCP
+    const mcpRegistrations = mcpServers.map(async (serverConfig) => {
+      const { name, url, transport = 'http' } = serverConfig;
+      return await this.registerMCPServer(name, url, transport);
+    });
+
+    const mcpResults = await Promise.allSettled(mcpRegistrations);
+    
+    // Reportar resultados
+    mcpResults.forEach((result, index) => {
+      const serverConfig = mcpServers[index];
+      if (result.status === 'fulfilled') {
+        console.log(`✅ Servidor MCP ${serverConfig.name} registrado exitosamente`);
+      } else {
+        console.error(`❌ Error registrando servidor MCP ${serverConfig.name}:`, result.reason);
+      }
+    });
+
+    return {
+      local: localFunctionSets.length,
+      mcp: mcpResults.filter(r => r.status === 'fulfilled').length,
+      mcpErrors: mcpResults.filter(r => r.status === 'rejected').length
+    };
+  }
+
+  /**
+   * Obtener estadísticas de funciones registradas
+   */
+  getFunctionStats() {
+    const localFunctions = super.getRegisteredFunctions();
+    const mcpFunctions = this.mcpHandler.getAllFunctions();
+    
+    const mcpCount = Object.values(mcpFunctions).reduce((count, serverFunctions) => {
+      return count + Object.keys(serverFunctions).length;
+    }, 0);
+
+    return {
+      local: {
+        count: Object.keys(localFunctions).length,
+        functions: Object.keys(localFunctions)
+      },
+      mcp: {
+        count: mcpCount,
+        servers: Object.keys(mcpFunctions),
+        serverDetails: this.mcpHandler.getServersStatus()
+      },
+      total: Object.keys(localFunctions).length + mcpCount
+    };
+  }
+
+  /**
+   * Chat con funciones híbridas (locales + MCP)
+   */
+  async chat(userInput, systemContext = "") {
+    try {
+      // Obtener todas las funciones combinadas
+      const allFunctions = this.getFunctionsForNodeLlama();
+      
+      console.log(`🔧 Iniciando chat híbrido con ${Object.keys(allFunctions).length} funciones disponibles`);
+      
+      // Usar el método chat de la clase padre con todas las funciones
+      return await super.chat(userInput, systemContext);
+      
+    } catch (error) {
+      console.error('❌ Error en chat híbrido:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Obtener configuración completa para exportar
+   */
+  async exportConfiguration() {
+    const localConfig = {
+      local: this.getRegisteredFunctions(),
+      mcp: this.mcpHandler.exportConfiguration()
+    };
+
+    return {
+      type: 'hybrid',
+      timestamp: new Date().toISOString(),
+      stats: this.getFunctionStats(),
+      configuration: localConfig
+    };
+  }
+
+  /**
+   * Cerrar todas las conexiones MCP
+   */
+  async cleanup() {
+    try {
+      await this.mcpHandler.disconnectAll();
+      console.log('🧹 Limpieza de conexiones MCP completada');
+    } catch (error) {
+      console.error('❌ Error en limpieza:', error);
+    }
+  }
+}
+
+/**
+ * Factory function para crear handler híbrido preconfigurado
+ */
+export async function createHybridHandler(config = {}) {
+  const {
+    modelPath,
+    localFunctions = ['fruits', 'system'],
+    mcpServers = [],
+    ...llamaConfig
+  } = config;
+
+  const handler = new HybridLlamaFunctionHandler({
+    modelPath,
+    ...llamaConfig
+  });
+
+  // Inicializar modelo local
+  await handler.initialize();
+  
+  // Registrar todas las funciones
+  await handler.registerAllFunctions(localFunctions, mcpServers);
+  
+  console.log(`✅ Handler híbrido creado con ${handler.getFunctionStats().total} funciones`);
+  
+  return handler;
+}
+
+/**
+ * Configuraciones predefinidas para diferentes escenarios
+ */
+export const HYBRID_PRESETS = {
+  // Solo funciones locales básicas
+  local: {
+    localFunctions: ['fruits', 'system'],
+    mcpServers: []
+  },
+  
+  // Con servidor MCP de desarrollo
+  development: {
+    localFunctions: ['fruits', 'system'],
+    mcpServers: [
+      {
+        name: 'devops-mcp',
+        url: 'http://localhost:3003',
+        transport: 'http'
+      }
+    ]
+  },
+  
+  // Configuración completa con múltiples servidores
+  full: {
+    localFunctions: ['fruits', 'system'],
+    mcpServers: [
+      {
+        name: 'devops-mcp',
+        url: 'http://localhost:3003',
+        transport: 'http'
+      },
+      {
+        name: 'wiki-mcp',
+        url: 'http://localhost:3004',
+        transport: 'http'
+      }
+    ]
+  }
+};
