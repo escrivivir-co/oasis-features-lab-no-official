@@ -45,7 +45,7 @@
     "shell": "docker-compose exec ecoin-wallet /bin/bash",
     "shell:gui": "docker-compose exec ecoin-gui /bin/bash",
     "backup": "npm run backup:data",
-    "backup:data": "tar -czf ./backups/ecoin-data-$(date +%Y%m%d_%H%M%S).tar.gz -C ./volumes ecoin-data",
+    "backup:data": "bash scripts/backup-data.sh",
     "restore:data": "echo 'Usage: npm run restore:data -- backup-file.tar.gz' && exit 1",
     "clean": "npm run stop:remove && docker system prune -f",
     "clean:bins": "rm -rf bins_* && echo 'Removed all binary directories'",
