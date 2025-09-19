@@ -60,13 +60,18 @@ class LocalFunctionChatWrapper extends ChatWrapper {
       return item;
     });
 
+    // Add user context if available
+    if (this.userContext && this.userContext.trim()) {
+      texts.push(LlamaText(["### Context\n", this.userContext]));
+    }
+
     const context = {
       contextText: LlamaText.joinValues("\n\n", texts),
       stopGenerationTriggers: [LlamaText(["### Human\n"])],
     };
 
     console.log("Generated context for local model");
-    return context + " " + this.userContext;
+    return context;
   }
 
   generateAvailableFunctionsSystemText(
@@ -314,8 +319,14 @@ export class LocalLlamaFunctionHandler {
             const result = JSON.parse(resultMatch[1]);
             if (result.name && result.price) {
               finalAnswer = `The price of ${result.name} is ${result.price}.`;
+            } else if (result.timestamp && result.formatted) {
+              finalAnswer = `The current time is ${result.formatted}.`;
+            } else if (result.location && result.temperature && result.condition) {
+              finalAnswer = `The weather in ${result.location} is ${result.condition} with temperature ${result.temperature}.`;
+            } else if (typeof result === 'string') {
+              finalAnswer = result;
             } else {
-              finalAnswer = String(result);
+              finalAnswer = JSON.stringify(result, null, 2);
             }
           } catch (parseError) {
             finalAnswer = resultMatch[1]; // Usar resultado raw si no es JSON

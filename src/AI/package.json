@@ -10,6 +10,7 @@
     "build": "node ./ai_service.mjs",
     "start": "node ./ai_service.mjs",
     "start:gpu": "start_gpu.bat",
+    "start:gpu-safe": "start_gpu_safe.bat",
     "start:cpu": "start_cpu.bat",
     "start:gpu-conservative": "start_gpu.bat",
     "start:gpu-max": "start_gpu_max.bat",

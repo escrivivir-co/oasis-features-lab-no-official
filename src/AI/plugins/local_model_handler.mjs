@@ -180,13 +180,18 @@ class MyCustomChatWrapper extends ChatWrapper {
       return item;
     });
 
+    // Add user context if available
+    if (this.userContext && this.userContext.trim()) {
+      texts.push(LlamaText(["### Context\n", this.userContext]));
+    }
+
     const context = {
       contextText: LlamaText.joinValues("\n\n", texts),
       stopGenerationTriggers: [LlamaText(["### Human\n"])],
     };
 
     // console.log("With context", context);
-    return context + " " + this.userContext;
+    return context;
   }
 
   generateAvailableFunctionsSystemText(
@@ -429,7 +434,21 @@ export class LocalModelHandler {
     const { name, params, result } = lastResult;
 
     console.log("Natural response for", name, params, result);
-    return result;
+    
+    // Format the result based on the function type
+    if (name === 'getFruitPrice' && result && typeof result === 'object') {
+      return `The price of ${result.name} is ${result.price}.`;
+    } else if (name === 'getCurrentTime' && result && typeof result === 'object') {
+      return `The current time is ${result.formatted}.`;
+    } else if (name === 'getWeather' && result && typeof result === 'object') {
+      return `The weather in ${result.location} is ${result.condition} with temperature ${result.temperature}.`;
+    } else if (typeof result === 'string') {
+      return result;
+    } else if (typeof result === 'object') {
+      return JSON.stringify(result, null, 2);
+    }
+    
+    return String(result);
   }
 
   /**

@@ -9,7 +9,7 @@ const PORT = process.env.PORT || 3011;
 
 // ✅ GPU Configuration from environment variables
 const GPU_ENABLED = process.env.GPU_ENABLED === 'true' || process.env.GPU_ENABLED === '1';
-const GPU_LAYERS = process.env.GPU_LAYERS ? parseInt(process.env.GPU_LAYERS) : undefined;
+const GPU_LAYERS = process.env.GPU_LAYERS === 'auto' ? undefined : (process.env.GPU_LAYERS ? parseInt(process.env.GPU_LAYERS) : undefined);
 const VRAM_PADDING = process.env.VRAM_PADDING ? parseInt(process.env.VRAM_PADDING) : (GPU_ENABLED ? 256 : 64);
 
 console.log('🚀 AI Service Configuration:');
@@ -42,86 +42,92 @@ let lastError = null;
 // Plugin handlers - inicializados cuando se necesiten
 let functionHandlerProd = null;
 let functionHandlerDev = null;
+let mainHandler = null; // Single shared handler
 
 async function initModel() {
-  if (model && ready) {
+  if (ready) {
     console.log("AI Service: Model already loaded, skipping initialization");
     return;
   }
   
-  if (model && !ready) {
-    console.log("AI Service: Model loading in progress...");
+  console.log("AI Service: Initializing single shared model handler...");
+  
+  // Use the working configuration from successful tests
+  if (!mainHandler && functionsPlugin) {
+    const modelPath = path.join(__dirname, 'models', 'oasis-42-1-chat.Q4_K_M.gguf');
+    if (!fs.existsSync(modelPath)) {
+      throw new Error(`Model file not found at: ${modelPath}`);
+    }
+    
+    console.log("AI Service: Loading model from:", modelPath);
+    console.log(`AI Service: GPU configuration - Enabled: ${GPU_ENABLED}, Layers: ${GPU_LAYERS || 'auto'}, VRAM Padding: ${VRAM_PADDING}MB`);
+    
+    // Use the same handler that worked in tests
+    mainHandler = functionsPlugin.createLocalLlamaHandler(modelPath, ['fruits', 'system'], { 
+      gpu: GPU_ENABLED,
+      gpuLayers: GPU_LAYERS,
+      vramPadding: VRAM_PADDING
+    });
+    
+    await mainHandler.initialize();
+    ready = true;
+    
+    console.log("AI Service: Model loaded and session initialized.");
+    if (GPU_ENABLED) {
+      console.log("🎯 GPU acceleration enabled for AI service!");
+    }
     return;
   }
   
-  const modelPath = path.join(__dirname, 'models', 'oasis-42-1-chat.Q4_K_M.gguf');
-  if (!fs.existsSync(modelPath)) {
-    throw new Error(`Model file not found at: ${modelPath}`);
+  // Fallback to legacy mode if no functions plugin
+  if (!functionsPlugin) {
+    const modelPath = path.join(__dirname, 'models', 'oasis-42-1-chat.Q4_K_M.gguf');
+    if (!fs.existsSync(modelPath)) {
+      throw new Error(`Model file not found at: ${modelPath}`);
+    }
+    
+    console.log("AI Service: Loading model from:", modelPath);
+    console.log(`AI Service: GPU configuration - Enabled: ${GPU_ENABLED}, Layers: ${GPU_LAYERS || 'auto'}, VRAM Padding: ${VRAM_PADDING}MB`);
+    
+    llamaInstance = await getLlama({ 
+      gpu: GPU_ENABLED,
+      vramPadding: VRAM_PADDING,
+      logger: GPU_ENABLED ? {
+        log: (level, message) => console.log(`[Llama ${level}]`, message),
+      } : undefined
+    });
+    
+    model = await llamaInstance.loadModel({ 
+      modelPath,
+      gpuLayers: GPU_LAYERS
+    });
+    
+    context = await model.createContext({
+      threads: GPU_ENABLED ? 1 : 4, // Menos hilos para GPU
+      contextSize: 4096,
+    });
+    
+    session = new LlamaChatSession({ 
+      contextSequence: context.getSequence(),
+      autoDisposeSequence: false
+    });
+    
+    console.log("AI Service: Model loaded and session initialized.");
+    
+    if (GPU_ENABLED) {
+      console.log("🎯 GPU acceleration enabled for AI service!");
+    }
+    ready = true;
   }
-  
-  console.log("AI Service: Loading model from:", modelPath);
-  console.log(`AI Service: GPU configuration - Enabled: ${GPU_ENABLED}, Layers: ${GPU_LAYERS || 'auto'}, VRAM Padding: ${VRAM_PADDING}MB`);
-  
-  llamaInstance = await getLlama({ 
-    gpu: GPU_ENABLED,
-    vramPadding: VRAM_PADDING,
-    logger: GPU_ENABLED ? {
-      log: (level, message) => console.log(`[Llama ${level}]`, message),
-    } : undefined
-  });
-  
-  model = await llamaInstance.loadModel({ 
-    modelPath,
-    gpuLayers: GPU_LAYERS
-  });
-  
-  context = await model.createContext({
-    threads: GPU_ENABLED ? 1 : 4, // Menos hilos para GPU
-    contextSize: 4096,
-  });
-  
-  session = new LlamaChatSession({ 
-    contextSequence: context.getSequence(),
-    autoDisposeSequence: false
-  });
-  
-  console.log("AI Service: Model loaded and session initialized.");
-  
-  if (GPU_ENABLED) {
-    console.log("🎯 GPU acceleration enabled for AI service!");
-  }
-  ready = true;
 }
 
 // Plugin initialization functions
 async function getFunctionHandler(mode) {
   if (!functionsPlugin) return null;
   
-  if (mode === 'prod') {
-    if (!functionHandlerProd) {
-      console.log("ROUTE FOR local_model_handler.mjs - GPU Config:", { gpu: GPU_ENABLED, gpuLayers: GPU_LAYERS, vramPadding: VRAM_PADDING });
-      functionHandlerProd = await functionsPlugin.getLocalModelHandler({
-        gpu: GPU_ENABLED,
-        gpuLayers: GPU_LAYERS,
-        vramPadding: VRAM_PADDING
-      });
-    }
-    return functionHandlerProd;
-  } else if (mode === 'dev') {
-    if (!functionHandlerDev) {
-       console.log("ROUTE FOR llama_functions_local.mjs - GPU Config:", { gpu: GPU_ENABLED, gpuLayers: GPU_LAYERS, vramPadding: VRAM_PADDING });
-      const modelPath = path.join(__dirname, 'models', 'oasis-42-1-chat.Q4_K_M.gguf');
-      functionHandlerDev = functionsPlugin.createLocalLlamaHandler(modelPath, ['fruits', 'system'], { 
-        gpu: GPU_ENABLED,
-        gpuLayers: GPU_LAYERS,
-        vramPadding: VRAM_PADDING
-      });
-      await functionHandlerDev.initialize();
-    }
-    return functionHandlerDev;
-  }
-  
-  return null;
+  // Always return the main shared handler to avoid multiple model instances
+  await initModel();
+  return mainHandler;
 }
 
 app.post('/ai', async (req, res) => {
@@ -160,13 +166,26 @@ app.post('/ai', async (req, res) => {
       }
     }
 
-    // Fallback: modo original sin funciones (legacy mode)
-    console.log("AI Service: Processing request in legacy mode...");
+    // Fallback: use shared handler or legacy mode
+    console.log("AI Service: Processing request in fallback mode...");
     const userContext = req.body.context || '';
-    const userPrompt = req.body.prompt || 'Provide an informative and precise response.';
     
+    // Try to use shared handler first
+    if (mainHandler) {
+      console.log("AI Service: Using shared model handler...");
+      const result = await mainHandler.chat(userInput, userContext);
+      return res.json({ 
+        answer: result.answer || result, 
+        snippets: userContext ? userContext.split('\n').slice(0, 50) : [],
+        hadFunctionCalls: result.hadFunctionCalls || false,
+        mode: 'shared'
+      });
+    }
+    
+    // Ultimate fallback: legacy mode with session
     await initModel();
-    console.log("AI Service: Model ready, generating response...");
+    console.log("AI Service: Using legacy session mode...");
+    const userPrompt = req.body.prompt || 'Provide an informative and precise response.';
     
     let snippets = [];
     if (userContext) {
