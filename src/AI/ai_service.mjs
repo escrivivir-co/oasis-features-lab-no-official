@@ -127,8 +127,41 @@ async function getFunctionHandler(mode) {
 app.post('/ai', async (req, res) => {
   console.log("Call /ai", req.body)
   try {
-    console.log("AI Service: Processing request...");
     const userInput = String(req.body.input || '').trim();
+    
+    // Detectar modo de funciones desde request o config
+    const functionMode = req.body.functionMode || 
+                        (req.body.useFunctionsProd ? 'prod' : 
+                         req.body.useFunctionsDev ? 'dev' : 
+                         req.body.useFunctions === false ? 'none' : 
+                         'none'); // Por defecto sin funciones para compatibilidad
+
+    // Si hay modo de funciones disponible, usar el plugin
+    if (functionMode !== 'none' && functionsPlugin) {
+      console.log("Start /ai Plugins!", req.body)
+      const handler = await getFunctionHandler(functionMode);
+      if (handler) {
+        let userContext = '';
+        try {
+          userContext = req.body.context || '';
+        } catch(err) {
+          console.log("Error at route /ai", err.message)
+        }
+
+        console.log("Start /ai Plugins!", req.body)
+        const result = await handler.chat(userInput, userContext);
+        
+        return res.json({ 
+          answer: result.answer || result, 
+          snippets: userContext ? userContext.split('\n').slice(0, 50) : [],
+          hadFunctionCalls: result.hadFunctionCalls || false,
+          mode: functionMode
+        });
+      }
+    }
+
+    // Fallback: modo original sin funciones (legacy mode)
+    console.log("AI Service: Processing request in legacy mode...");
     const userContext = req.body.context || '';
     const userPrompt = req.body.prompt || 'Provide an informative and precise response.';
     
@@ -150,7 +183,11 @@ app.post('/ai', async (req, res) => {
     console.log("AI Service: Generating answer...");
     const answer = await session.prompt(prompt);
     console.log("AI Service: Answer generated successfully");
-    res.json({ answer: String(answer || '').trim(), snippets });
+    res.json({ 
+      answer: String(answer || '').trim(), 
+      snippets,
+      mode: 'legacy'
+    });
   } catch (err) {
     lastError = err;
     console.error("AI Service Error:", err.message);
@@ -214,12 +251,20 @@ initModel().then(() => {
   console.error('❌ Error precargando modelo:', err.message);
 });
 
-app.listen(3011, () => {
-  console.log('🤖 AI Service listening on port 3011');
-}, err => {
-  if (err) {
-    console.error('❌ Error starting AI Service:', err.message);
-  } else {
-    console.log('✅ AI Service started successfully');
-  }   
+app.listen(PORT, () => {
+  console.log(`🚀 AI Service starting on port ${PORT}`);
+  console.log('📍 Available modes:');
+  console.log('  • Default: POST /ai {"input": "question"}');
+  console.log('  • Functions Prod: POST /ai {"input": "question", "useFunctionsProd": true}');
+  console.log('  • Functions Dev: POST /ai {"input": "question", "useFunctionsDev": true}');
+  console.log('  • No Functions: POST /ai {"input": "question", "useFunctions": false}');
+  if (!functionsPlugin) {
+    console.log('⚠️  Functions plugin not loaded - only legacy mode available');
+  }
+}).on('error', (err) => {
+  console.error('❌ Failed to start AI Service:', err.message);
+  if (err.code === 'EADDRINUSE') {
+    console.error(`Port ${PORT} is already in use`);
+  }
+  process.exit(1);
 });
