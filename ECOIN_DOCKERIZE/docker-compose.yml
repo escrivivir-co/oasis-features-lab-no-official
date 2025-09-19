@@ -2,7 +2,9 @@ services:
   ecoin-wallet:
     build: 
       context: .
-      dockerfile: Dockerfile.full
+      dockerfile: Dockerfile
+      args:
+        ECOIN_BUILD_MODE: ${ECOIN_BUILD_MODE:-source}
     container_name: ecoin-wallet
     hostname: ecoin-wallet
     restart: unless-stopped
@@ -20,12 +22,12 @@ services:
     
     # Environment variables
     environment:
-      - ECOIN_MODE=daemon
-      - ECOIN_RPC_USER=ecoinuser
-      - ECOIN_RPC_PASSWORD=ecoinpass123
-      - ECOIN_RPC_BIND=0.0.0.0
-      - ECOIN_RPC_PORT=9332
-      - ECOIN_P2P_PORT=9333
+      - ECOIN_MODE=${ECOIN_MODE:-daemon}
+      - ECOIN_RPC_USER=${ECOIN_RPC_USER:-ecoinuser}
+      - ECOIN_RPC_PASSWORD=${ECOIN_RPC_PASSWORD:-ecoinpass123}
+      - ECOIN_RPC_BIND=${ECOIN_RPC_BIND:-0.0.0.0}
+      - ECOIN_RPC_PORT=${ECOIN_RPC_PORT:-9332}
+      - ECOIN_P2P_PORT=${ECOIN_P2P_PORT:-9333}
       - DISPLAY=:1
     
     # Health check
@@ -47,7 +49,9 @@ services:
   ecoin-gui:
     build: 
       context: .
-      dockerfile: Dockerfile.full
+      dockerfile: Dockerfile
+      args:
+        ECOIN_BUILD_MODE: ${ECOIN_BUILD_MODE:-source}
     container_name: ecoin-gui
     hostname: ecoin-gui
     restart: unless-stopped
@@ -62,6 +66,11 @@ services:
     
     environment:
       - ECOIN_MODE=gui
+      - ECOIN_RPC_USER=${ECOIN_RPC_USER:-ecoinuser}
+      - ECOIN_RPC_PASSWORD=${ECOIN_RPC_PASSWORD:-ecoinpass123}
+      - ECOIN_RPC_BIND=${ECOIN_RPC_BIND:-0.0.0.0}
+      - ECOIN_RPC_PORT=${ECOIN_RPC_PORT:-9332}
+      - ECOIN_P2P_PORT=${ECOIN_P2P_PORT:-9333}
       - DISPLAY=:1
     
     networks:

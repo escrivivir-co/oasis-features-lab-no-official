@@ -1,6 +1,6 @@
-# ECOin Wallet Dockerized
-# Based on Debian bookworm for compatibility with build requirements
-FROM debian:bookworm-slim
+# ECOin Wallet Dockerized - Configurable Build Version
+# Supports both source compilation and binary installation
+FROM debian:bookworm-slim as base
 
 LABEL maintainer="ECOin Dockerized"
 LABEL description="ECOin P2P Crypto-Currency Wallet and Daemon"
@@ -12,32 +12,68 @@ ENV ECOIN_USER=ecoin
 ENV ECOIN_HOME=/home/ecoin
 ENV ECOIN_DATA=/home/ecoin/.ecoin
 
-# Update package list and install dependencies
+# Build mode: "source", "binary", or "auto"
+ARG ECOIN_BUILD_MODE=auto
+ENV ECOIN_BUILD_MODE=${ECOIN_BUILD_MODE}
+
+# Detect architecture
+ARG TARGETARCH
+ENV TARGET_ARCH=${TARGETARCH}
+RUN echo "=== Architecture Detection ===" && \
+    echo "TARGETARCH: ${TARGETARCH}" && \
+    echo "BUILD_MODE: ${ECOIN_BUILD_MODE}" && \
+    uname -m
+
+# Install base dependencies
 RUN apt-get update && apt-get install -y \
-    build-essential \
-    libssl-dev \
-    libssl3 \
-    libdb5.3-dev \
-    libdb5.3++-dev \
-    libleveldb-dev \
-    miniupnpc \
-    libminiupnpc-dev \
-    libqrencode-dev \
-    qt5-qmake \
-    qtbase5-dev \
-    git \
     wget \
     curl \
+    unzip \
     ca-certificates \
     xvfb \
     x11vnc \
     fluxbox \
-    autoconf \
-    automake \
-    libtool \
-    pkg-config \
-    libboost-all-dev \
+    supervisor \
     && rm -rf /var/lib/apt/lists/*
+
+# Install runtime dependencies always (needed for both binary and source modes)
+RUN apt-get update && apt-get install -y \
+        libssl3 \
+        libdb5.3++ \
+        libleveldb1d \
+        libminiupnpc17 \
+        libqrencode4 \
+        libboost-system1.74.0 \
+        libboost-filesystem1.74.0 \
+        libboost-thread1.74.0 \
+        libboost-chrono1.74.0 \
+        libboost-program-options1.74.0 \
+        && rm -rf /var/lib/apt/lists/*
+
+# Install development dependencies only for source compilation
+RUN if [ "$ECOIN_BUILD_MODE" = "source" ]; then \
+        apt-get update && apt-get install -y \
+            build-essential \
+            git \
+            unzip \
+            autoconf \
+            automake \
+            libtool \
+            pkg-config \
+            libssl-dev \
+            libdb5.3-dev \
+            libdb5.3++-dev \
+            libleveldb-dev \
+            miniupnpc \
+            libminiupnpc-dev \
+            libqrencode-dev \
+            qt5-qmake \
+            qtbase5-dev \
+            qttools5-dev \
+            qttools5-dev-tools \
+            libboost-all-dev \
+            && rm -rf /var/lib/apt/lists/*; \
+    fi
 
 # Create ecoin user
 RUN useradd -m -s /bin/bash ${ECOIN_USER} && \
@@ -48,120 +84,133 @@ RUN useradd -m -s /bin/bash ${ECOIN_USER} && \
 USER ${ECOIN_USER}
 WORKDIR ${ECOIN_HOME}
 
-# Download ECOin source code using multiple strategies
-RUN git config --global core.longpaths true && \
-    git config --global core.autocrlf false && \
-    echo "Attempting to download ECOin source code..." && \
-    (wget -O ecoin.tar.gz https://github.com/epsylon/ecoin/archive/refs/heads/main.tar.gz || \
-     wget -O ecoin.tar.gz https://github.com/epsylon/ecoin/archive/refs/heads/master.tar.gz || \
-     curl -L -o ecoin.tar.gz https://github.com/epsylon/ecoin/archive/refs/heads/main.tar.gz || \
-     curl -L -o ecoin.tar.gz https://github.com/epsylon/ecoin/archive/refs/heads/master.tar.gz) && \
-    tar -xzf ecoin.tar.gz && \
-    mv ecoin-* ecoin-src && \
-    rm ecoin.tar.gz && \
-    echo "Source code download completed successfully"
+# Copy entrypoint script
+COPY --chown=${ECOIN_USER}:${ECOIN_USER} scripts/entrypoint.sh ${ECOIN_HOME}/
 
-# Check if src directory exists and list contents for debugging
-WORKDIR ${ECOIN_HOME}/ecoin-src
-RUN ls -la && \
-    echo "=== Checking src directory ===" && \
-    if [ -d "src" ]; then \
-        echo "src directory found, listing contents:"; \
-        ls -la src/; \
-        echo "=== Checking for cpp files ==="; \
-        find src/ -name "*.cpp" | head -10; \
-        echo "=== Checking for makefile ==="; \
-        find . -name "makefile*" -o -name "Makefile*"; \
-    else \
-        echo "src directory not found"; \
-        echo "Available directories:"; \
-        ls -la; \
+# Copy potential local binary directories (might be empty if no local binaries)
+COPY --chown=${ECOIN_USER}:${ECOIN_USER} bins_x86_64/ ${ECOIN_HOME}/bins_x86_64/
+COPY --chown=${ECOIN_USER}:${ECOIN_USER} bins_aarch64/ ${ECOIN_HOME}/bins_aarch64/
+
+# Download and setup ECOin with smart detection
+RUN echo "=== ECOin Setup with Smart Detection ===" && \
+    BUILD_MODE_FINAL="$ECOIN_BUILD_MODE" && \
+    \
+    # Check for local binaries from multiple architectures
+    ARCH=$(uname -m) && \
+    echo "Detected architecture: $ARCH" && \
+    \
+    # Try x86_64 first (native), then architecture-specific directories
+    LOCAL_BINS_FOUND=false && \
+    for bins_dir in "bins_x86_64" "bins_aarch64"; do \
+        if [ -d "$bins_dir" ] && [ -f "$bins_dir/ecoind" ] && [ -f "$bins_dir/ecoin-qt" ]; then \
+            echo "Found local binaries in $bins_dir/, copying to working directory..." && \
+            cp "$bins_dir/ecoind" ./ && chmod +x ./ecoind && \
+            cp "$bins_dir/ecoin-qt" ./ && chmod +x ./ecoin-qt && \
+            LOCAL_BINS_FOUND=true && \
+            break; \
+        fi; \
+    done && \
+    \
+    # Auto-detection logic
+    if [ "$ECOIN_BUILD_MODE" = "auto" ]; then \
+        if [ "$LOCAL_BINS_FOUND" = "true" ]; then \
+            echo "Found complete local binaries, using local mode" && \
+            BUILD_MODE_FINAL="local"; \
+        elif [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then \
+            echo "ARM64 detected, trying remote binaries" && \
+            BUILD_MODE_FINAL="binary"; \
+        else \
+            echo "No complete local binaries found, compiling from source" && \
+            BUILD_MODE_FINAL="source"; \
+        fi; \
+    fi && \
+    \
+    echo "Final build mode: $BUILD_MODE_FINAL" && \
+    \
+    # Execute based on final mode
+    if [ "$BUILD_MODE_FINAL" = "local" ]; then \
+        echo "=== Using local precompiled binaries ===" && \
+        ls -la ./ecoind ./ecoin-qt 2>/dev/null || echo "Some binaries missing"; \
+    elif [ "$BUILD_MODE_FINAL" = "binary" ]; then \
+        echo "=== Downloading remote precompiled binaries ===" && \
+        if [ "$(uname -m)" = "aarch64" ]; then \
+            wget -O ecoind https://ecoin.03c8.net/packages/arm64/ecoind && \
+            wget -O ecoin-qt https://ecoin.03c8.net/packages/arm64/ecoin-qt && \
+            echo "d6dd3b8a82c8ea7c484cb2bbe3985f0c  ecoind" | md5sum -c - && \
+            echo "dc59ebf19d18ded8d17b536dadfcee8a  ecoin-qt" | md5sum -c - && \
+            chmod +x ecoind ecoin-qt; \
+        else \
+            echo "No remote binaries available for $(uname -m), falling back to source compilation" && \
+            BUILD_MODE_FINAL="source"; \
+        fi; \
+    fi && \
+    \
+    # Source compilation fallback
+    if [ "$BUILD_MODE_FINAL" = "source" ] || [ ! -f "./ecoind" ]; then \
+        echo "=== Downloading ECOin source code ===" && \
+        (wget -O ecoin.zip https://github.com/epsylon/ecoin/archive/refs/heads/main.zip || \
+         wget -O ecoin.zip https://github.com/epsylon/ecoin/archive/refs/heads/master.zip || \
+         curl -L -o ecoin.zip https://github.com/epsylon/ecoin/archive/refs/heads/main.zip || \
+         curl -L -o ecoin.zip https://github.com/epsylon/ecoin/archive/refs/heads/master.zip) && \
+        unzip ecoin.zip && \
+        mv ecoin-* ecoin-src && \
+        rm ecoin.zip; \
     fi
 
-# Build ECOin daemon (ecoind) - check for makefile existence first
-WORKDIR ${ECOIN_HOME}/ecoin-src/src
-RUN if [ -f "makefile.linux" ]; then \
-        make -f makefile.linux USE_UPNP=- USE_IPV6=- && strip ecoind; \
-    elif [ -f "Makefile" ]; then \
-        make USE_UPNP=- USE_IPV6=- ecoind && strip ecoind; \
-    else \
-        echo "No makefile found, trying alternative build"; \
+# Build process based on mode
+RUN if [ "$ECOIN_BUILD_MODE" = "source" ]; then \
+        echo "=== Building from source ===" && \
+        cd ${ECOIN_HOME}/ecoin-src/ecoin && \
+        echo "=== ECOin source structure ===" && \
+        ls -la && \
+        echo "=== src directory ===" && \
+        if [ -d "src" ]; then ls -la src/ | head -20; else echo "No src directory"; fi && \
+        echo "=== Building ECOin daemon ===" && \
+        cd src && \
+        make -f makefile.linux USE_UPNP=- USE_IPV6=- && \
+        echo "=== Building ECOin Qt wallet ===" && \
         cd .. && \
-        if [ -f "build.sh" ]; then \
-            chmod +x build.sh && ./build.sh; \
-        else \
-            echo "Manual build required"; \
-            cd src && \
-            g++ -std=c++11 -O2 -pthread -Wall -Wextra -Wformat -Wformat-security \
-                -Wno-unused-parameter -DUSE_LEVELDB -DBOOST_SPIRIT_THREADSAFE \
-                -I. -I./leveldb/include -I./leveldb/helpers \
-                -Iboost_1_68_0 -I./boost_1_68_0/boost \
-                *.cpp leveldb/libleveldb.a \
-                -lssl -lcrypto -ldb_cxx-5.3 -ldl -lpthread \
-                -o ecoind && strip ecoind; \
-        fi; \
-    fi
-
-# Build ECOin Qt wallet (ecoin-qt)
-WORKDIR ${ECOIN_HOME}/ecoin-src
-RUN if [ -f "ecoin-qt.pro" ]; then \
-        qmake USE_UPNP=- USE_IPV6=- && make; \
+        qmake USE_UPNP=- USE_IPV6=- -o Makefile ecoin-qt.pro && \
+        make && \
+        echo "=== Build completed ==="; \
     else \
-        echo "ecoin-qt.pro not found, skipping Qt wallet build"; \
-        mkdir -p dummy && echo "#!/bin/bash" > ecoin-qt && echo "echo 'Qt wallet not available'" >> ecoin-qt && chmod +x ecoin-qt; \
-    fi
-
-# Build CPU miner (optional)
-WORKDIR ${ECOIN_HOME}/ecoin-src
-RUN if [ -d "miner" ]; then \
-        cd miner && \
-        if [ -f "build.sh" ]; then \
-            chmod +x build.sh && ./build.sh; \
-        elif [ -f "configure.ac" ]; then \
-            autoreconf -fi && ./configure && make; \
-        else \
-            echo "Miner build files not found"; \
-            echo "#!/bin/bash" > cpuminer && echo "echo 'Miner not available'" >> cpuminer && chmod +x cpuminer; \
-        fi; \
-    else \
-        echo "Miner directory not found"; \
-        mkdir -p miner && cd miner && \
-        echo "#!/bin/bash" > cpuminer && echo "echo 'Miner not available'" >> cpuminer && chmod +x cpuminer; \
+        echo "=== Using precompiled binaries - no compilation needed ==="; \
     fi
 
 # Create symlinks for easier access
 WORKDIR ${ECOIN_HOME}
-RUN if [ -f "${ECOIN_HOME}/ecoin-src/src/ecoind" ]; then \
-        ln -s ${ECOIN_HOME}/ecoin-src/src/ecoind ./ecoind; \
+RUN echo "=== Creating symlinks ===" && \
+    if [ "$ECOIN_BUILD_MODE" = "binary" ]; then \
+        echo "Using precompiled binaries" && \
+        chmod +x ecoind ecoin-qt; \
     else \
-        echo "Warning: ecoind binary not found"; \
-        echo "#!/bin/bash" > ecoind && echo "echo 'ecoind not available'" >> ecoind && chmod +x ecoind; \
-    fi && \
-    if [ -f "${ECOIN_HOME}/ecoin-src/ecoin-qt" ]; then \
-        ln -s ${ECOIN_HOME}/ecoin-src/ecoin-qt ./ecoin-qt; \
-    else \
-        echo "Warning: ecoin-qt binary not found"; \
-        echo "#!/bin/bash" > ecoin-qt && echo "echo 'ecoin-qt not available'" >> ecoin-qt && chmod +x ecoin-qt; \
-    fi && \
-    if [ -f "${ECOIN_HOME}/ecoin-src/miner/cpuminer" ]; then \
-        ln -s ${ECOIN_HOME}/ecoin-src/miner/cpuminer ./cpuminer; \
-    else \
-        echo "Warning: cpuminer binary not found"; \
-        echo "#!/bin/bash" > cpuminer && echo "echo 'cpuminer not available'" >> cpuminer && chmod +x cpuminer; \
+        echo "Using compiled binaries from source" && \
+        if [ -f "ecoin-src/ecoin/src/ecoind" ]; then \
+            ln -s ${ECOIN_HOME}/ecoin-src/ecoin/src/ecoind ./ecoind && \
+            echo "Linked ecoind daemon"; \
+        fi && \
+        if [ -f "ecoin-src/ecoin/ecoin-qt" ]; then \
+            ln -s ${ECOIN_HOME}/ecoin-src/ecoin/ecoin-qt ./ecoin-qt && \
+            echo "Linked Qt wallet"; \
+        fi; \
     fi
+
+# Show final build results
+RUN echo "=== Build Summary ===" && \
+    echo "ecoind: $(if [ -x ecoind ]; then echo 'Available'; else echo 'Not available'; fi)" && \
+    echo "ecoin-qt: $(if [ -x ecoin-qt ]; then echo 'Available'; else echo 'Not available'; fi)"
 
 # Create data directory
 RUN mkdir -p ${ECOIN_DATA}
 
 # Expose ports
-# 9333: ECOin P2P network port
-# 9332: ECOin RPC port
-# 5900: VNC port for GUI access
 EXPOSE 9333 9332 5900
 
 # Copy entrypoint script
 COPY --chown=${ECOIN_USER}:${ECOIN_USER} scripts/entrypoint.sh /usr/local/bin/entrypoint.sh
+USER root
 RUN chmod +x /usr/local/bin/entrypoint.sh
+USER ${ECOIN_USER}
 
 # Set volumes
 VOLUME ["${ECOIN_DATA}"]
