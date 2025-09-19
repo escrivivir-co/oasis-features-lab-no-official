@@ -200,6 +200,17 @@ export class HybridLlamaFunctionHandler extends LocalLlamaFunctionHandler {
       console.error('❌ Error en limpieza:', error);
     }
   }
+
+  async print() {
+    const stats = this.getFunctionStats();
+    console.log("📊 Function Statistics:");
+    console.log(`   Local functions: ${stats.local.count}`);
+    console.log(`   MCP functions: ${stats.mcp.count}`);
+    console.log(`   Total functions: ${stats.total}`);
+    if (stats.mcp.servers && stats.mcp.servers.length > 0) {
+      console.log(`   MCP servers: ${stats.mcp.servers.join(', ')}`);
+    }
+  }
 }
 
 /**

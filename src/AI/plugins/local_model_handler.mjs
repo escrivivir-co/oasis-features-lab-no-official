@@ -249,8 +249,9 @@ export class LocalModelHandler {
     this.context = null;
     this.session = null;
     this.ready = false;
+    this.modelPath = config.modelPath;
     this.functions = new Map();
-    this.functionSets = ["fruits"];
+    this.functionSets = config.functionSets;
     this.gpu = config.gpu !== false; // Por defecto habilitada, se deshabilita explícitamente
     this.gpuLayers = config.gpuLayers; // Undefined = automático
     this.vramPadding = config.vramPadding || 256; // 256MB de padding para GPU grande la mitad para normales --> es la cantidad de megas que no usará y así evitará colapsar la gpu
@@ -263,9 +264,9 @@ export class LocalModelHandler {
     }
 
     this.initFunctions();
-    const modelPath = path.join(__dirname, "..", "models", "oasis-42-1-chat.Q4_K_M.gguf");
-    if (!fs.existsSync(modelPath)) {
-      throw new Error(`Model file not found at: ${modelPath}`);
+    
+    if (!fs.existsSync(this.modelPath)) {
+      throw new Error(`Model file not found at: ${this.modelPath}`);
     }
 
     console.log("Initializing local model...");
@@ -282,7 +283,7 @@ export class LocalModelHandler {
     });
     
     this.model = await this.llamaInstance.loadModel({ 
-      modelPath,
+      modelPath: this.modelPath,
       gpuLayers: this.gpuLayers, // undefined = automático, 0 = solo CPU, >0 = cantidad específica
     });
     

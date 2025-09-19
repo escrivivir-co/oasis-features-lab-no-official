@@ -4,8 +4,8 @@
  * Script de prueba para validar la implementación MCP-to-Llama
  */
 
-import { createHybridHandler, HYBRID_PRESETS } from './hybrid_llama_handler.mjs';
-import { getMCPFunctionHandler } from './mcp_function_handler.mjs';
+import { createHybridHandler, HYBRID_PRESETS } from '../hybrid_llama_handler.mjs';
+import { getMCPFunctionHandler } from '../mcp_function_handler.mjs';
 
 async function testMCPExtraction() {
   console.log('🧪 Iniciando pruebas de extracción MCP...\n');

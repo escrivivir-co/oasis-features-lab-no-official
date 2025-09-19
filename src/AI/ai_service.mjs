@@ -43,112 +43,49 @@ let lastError = null;
 // Plugin handlers - inicializados cuando se necesiten
 let functionHandlerProd = null;
 let functionHandlerDev = null;
-let mainHandler = null; // Single shared handler
+let functionHandlerMcp = null; // Single shared handler
 
 async function initModel() {
   if (ready) {
     console.log("AI Service: Model already loaded, skipping initialization");
     return;
   }
-  
-  console.log("AI Service: Initializing single shared model handler...");
-  
-  // Use the working configuration from successful tests
-  if (!mainHandler && functionsPlugin) {
-    const modelPath = path.join(__dirname, 'models', 'oasis-42-1-chat.Q4_K_M.gguf');
-    if (!fs.existsSync(modelPath)) {
-      throw new Error(`Model file not found at: ${modelPath}`);
-    }
-    
-    console.log("AI Service: Loading model from:", modelPath);
-    console.log(`AI Service: GPU configuration - Enabled: ${GPU_ENABLED}, Layers: ${GPU_LAYERS || 'auto'}, VRAM Padding: ${VRAM_PADDING}MB`);
-    
-    // Use hybrid handler with MCP integration
-    try {
-      console.log("AI Service: Attempting to create hybrid handler with MCP tools...");
-      mainHandler = await functionsPlugin.createHybridHandler({
-        modelPath,
-        localFunctions: ['fruits', 'system'],
-        mcpServers: [
-          {
-            name: 'localhost',
-            url: 'http://localhost:3003',
-            transport: 'http'
-          }
-        ],
-        gpu: GPU_ENABLED,
-        gpuLayers: GPU_LAYERS,
-        vramPadding: VRAM_PADDING
-      });
-      
-      console.log("✅ Hybrid handler with MCP tools created successfully!");
-      
-    } catch (mcpError) {
-      console.warn("⚠️ MCP server not available, falling back to local functions only:", mcpError.message);
-      // Fallback to local functions only
-      mainHandler = functionsPlugin.createLocalLlamaHandler(modelPath, ['fruits', 'system'], { 
-        gpu: GPU_ENABLED,
-        gpuLayers: GPU_LAYERS,
-        vramPadding: VRAM_PADDING
-      });
-      await mainHandler.initialize();
-    }
-    ready = true;
-    
-    // Log function statistics
-    if (mainHandler && typeof mainHandler.getFunctionStats === 'function') {
-      const stats = mainHandler.getFunctionStats();
-      console.log("📊 Function Statistics:");
-      console.log(`   Local functions: ${stats.local.count}`);
-      console.log(`   MCP functions: ${stats.mcp.count}`);
-      console.log(`   Total functions: ${stats.total}`);
-      if (stats.mcp.servers && stats.mcp.servers.length > 0) {
-        console.log(`   MCP servers: ${stats.mcp.servers.join(', ')}`);
-      }
-    }
-    
-    console.log("AI Service: Model loaded and session initialized.");
-    if (GPU_ENABLED) {
-      console.log("🎯 GPU acceleration enabled for AI service!");
-    }
-    return;
-  }
-  
+
   // Fallback to legacy mode if no functions plugin
   if (!functionsPlugin) {
     const modelPath = path.join(__dirname, 'models', 'oasis-42-1-chat.Q4_K_M.gguf');
     if (!fs.existsSync(modelPath)) {
       throw new Error(`Model file not found at: ${modelPath}`);
     }
-    
+
     console.log("AI Service: Loading model from:", modelPath);
     console.log(`AI Service: GPU configuration - Enabled: ${GPU_ENABLED}, Layers: ${GPU_LAYERS || 'auto'}, VRAM Padding: ${VRAM_PADDING}MB`);
-    
-    llamaInstance = await getLlama({ 
+
+    llamaInstance = await getLlama({
       gpu: GPU_ENABLED,
       vramPadding: VRAM_PADDING,
       logger: GPU_ENABLED ? {
         log: (level, message) => console.log(`[Llama ${level}]`, message),
       } : undefined
     });
-    
-    model = await llamaInstance.loadModel({ 
+
+    model = await llamaInstance.loadModel({
       modelPath,
       gpuLayers: GPU_LAYERS
     });
-    
+
     context = await model.createContext({
       threads: GPU_ENABLED ? 1 : 4, // Menos hilos para GPU
       contextSize: 4096,
     });
-    
-    session = new LlamaChatSession({ 
+
+    session = new LlamaChatSession({
       contextSequence: context.getSequence(),
       autoDisposeSequence: false
     });
-    
+
     console.log("AI Service: Model loaded and session initialized.");
-    
+
     if (GPU_ENABLED) {
       console.log("🎯 GPU acceleration enabled for AI service!");
     }
@@ -159,23 +96,74 @@ async function initModel() {
 // Plugin initialization functions
 async function getFunctionHandler(mode) {
   if (!functionsPlugin) return null;
-  
-  // Always return the main shared handler to avoid multiple model instances
-  await initModel();
-  return mainHandler;
+
+  console.log("ROUTE FOR llama_functions_local.mjs")
+  const modelPath = path.join(__dirname, 'models', 'oasis-42-1-chat.Q4_K_M.gguf');
+  switch (mode) {
+    case 'prod': {
+      if (!functionHandlerProd) {
+        console.log("ROUTE FOR local_model_handler.mjs")
+        functionHandlerProd = await functionsPlugin.getLocalModelHandler({
+          modelPath,
+          functionSets: ['fruits', 'system'],
+          gpu: GPU_ENABLED,
+          gpuLayers: GPU_LAYERS,
+          vramPadding: VRAM_PADDING
+        });
+      }
+      return functionHandlerProd;
+    }
+    case 'dev': {
+      if (!functionHandlerDev) {
+        functionHandlerDev = await functionsPlugin.createLocalLlamaHandler(modelPath, ['fruits', 'system'], {
+          gpu: GPU_ENABLED,
+          gpuLayers: GPU_LAYERS,
+          vramPadding: VRAM_PADDING
+        });
+        await functionHandlerDev.initialize();
+      }
+      return functionHandlerDev;
+    }
+    case 'mcp': {
+      if (!functionHandlerMcp) {
+        functionHandlerMcp = await functionsPlugin.createHybridHandler({
+          modelPath,
+          localFunctions: ['fruits', 'system'],
+          mcpServers: [
+            {
+              name: 'localhost',
+              url: 'http://localhost:3003',
+              transport: 'http'
+            }
+          ],
+          gpu: GPU_ENABLED,
+          gpuLayers: GPU_LAYERS,
+          vramPadding: VRAM_PADDING
+        });
+        await functionHandlerMcp.initialize();
+      }
+      return functionHandlerMcp;
+    }
+    default : {
+      console.log("No handler found!!!!!")
+    }
+  }
+
+  return null;
 }
 
 app.post('/ai', async (req, res) => {
   console.log("Call /ai", req.body)
   try {
     const userInput = String(req.body.input || '').trim();
-    
+
     // Detectar modo de funciones desde request o config
-    const functionMode = req.body.functionMode || 
-                        (req.body.useFunctionsProd ? 'prod' : 
-                         req.body.useFunctionsDev ? 'dev' : 
-                         req.body.useFunctions === false ? 'none' : 
-                         'none'); // Por defecto sin funciones para compatibilidad
+    const functionMode = req.body.functionMode ||
+      (req.body.useFunctionsMcp ? 'mcp' :
+        req.body.useFunctionsProd ? 'prod' :
+        req.body.useFunctionsDev ? 'dev' :
+          req.body.useFunctions === false ? 'none' :
+            'none'); // Por defecto sin funciones para compatibilidad
 
     // Si hay modo de funciones disponible, usar el plugin
     if (functionMode !== 'none' && functionsPlugin) {
@@ -185,15 +173,15 @@ app.post('/ai', async (req, res) => {
         let userContext = '';
         try {
           userContext = req.body.context || '';
-        } catch(err) {
+        } catch (err) {
           console.log("Error at route /ai", err.message)
         }
 
         console.log("Start /ai Plugins!", req.body)
         const result = await handler.chat(userInput, userContext);
-        
-        return res.json({ 
-          answer: result.answer || result, 
+
+        return res.json({
+          answer: result.answer || result,
           snippets: userContext ? userContext.split('\n').slice(0, 50) : [],
           hadFunctionCalls: result.hadFunctionCalls || false,
           mode: functionMode
@@ -204,27 +192,27 @@ app.post('/ai', async (req, res) => {
     // Fallback: use shared handler or legacy mode
     console.log("AI Service: Processing request in fallback mode...");
     const userContext = req.body.context || '';
-    
+
     // Try to use shared handler first
     if (mainHandler) {
       console.log("AI Service: Using shared model handler...");
       const result = await mainHandler.chat(userInput, userContext);
-      return res.json({ 
-        answer: result.answer || result, 
+      return res.json({
+        answer: result.answer || result,
         snippets: userContext ? userContext.split('\n').slice(0, 50) : [],
         hadFunctionCalls: result.hadFunctionCalls || false,
         mode: 'shared'
       });
     }
-    
+
     // Ultimate fallback: legacy mode with session
     await initModel();
     console.log("AI Service: Using legacy session mode...");
     const userPrompt = req.body.prompt || 'Provide an informative and precise response.';
-    
+
     let snippets = [];
     if (userContext) {
-        snippets = userContext.split('\n').slice(0, 50);
+      snippets = userContext.split('\n').slice(0, 50);
     }
 
     const prompt = [
@@ -233,12 +221,12 @@ app.post('/ai', async (req, res) => {
       `Query: "${userInput}"`,
       userPrompt
     ].filter(Boolean).join('\n\n');
-    
+
     console.log("AI Service: Generating answer...");
     const answer = await session.prompt(prompt);
     console.log("AI Service: Answer generated successfully");
-    res.json({ 
-      answer: String(answer || '').trim(), 
+    res.json({
+      answer: String(answer || '').trim(),
       snippets,
       mode: 'legacy'
     });
@@ -254,16 +242,16 @@ app.post('/ai/train', async (req, res) => {
 });
 
 app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'ok', 
-    ready: ready, 
+  res.json({
+    status: 'ok',
+    ready: ready,
     error: lastError?.message || null,
     timestamp: Date.now()
   });
 });
 
 app.get('/status', (req, res) => {
-  res.json({ 
+  res.json({
     status: ready ? 'ready' : 'initializing',
     modelLoaded: !!model,
     sessionReady: !!session,
@@ -276,16 +264,16 @@ app.post('/preload', async (req, res) => {
   try {
     console.log("AI Service: Preloading model...");
     await initModel();
-    res.json({ 
+    res.json({
       status: 'success',
       ready: ready,
       message: 'Model preloaded successfully'
     });
   } catch (err) {
     console.error("AI Service: Error preloading model:", err.message);
-    res.status(500).json({ 
+    res.status(500).json({
       status: 'error',
-      message: err.message 
+      message: err.message
     });
   }
 });
@@ -309,6 +297,7 @@ app.listen(PORT, () => {
   console.log(`🚀 AI Service starting on port ${PORT}`);
   console.log('📍 Available modes:');
   console.log('  • Default: POST /ai {"input": "question"}');
+  console.log('  • Functions Prod: POST /ai {"input": "question", "useFunctionsMcp": true}');
   console.log('  • Functions Prod: POST /ai {"input": "question", "useFunctionsProd": true}');
   console.log('  • Functions Dev: POST /ai {"input": "question", "useFunctionsDev": true}');
   console.log('  • No Functions: POST /ai {"input": "question", "useFunctions": false}');
