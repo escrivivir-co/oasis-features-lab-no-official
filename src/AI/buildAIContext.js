@@ -1,10 +1,4 @@
-const pull = require('../server/node_modules/pull-stream');
-const gui = require('../client/gui.js');
-const { getConfig } = require('../configs/config-manager.js');
 const path = require('path');
-
-const logLimit = getConfig().ssbLogStream?.limit || 1000;
-const cooler = gui({ offline: false });
 
 const searchableTypes = [
   'post', 'about', 'curriculum', 'tribe', 'transfer', 'feed',
@@ -67,66 +61,10 @@ async function publishExchange({ q, a, ctx = [], tokens = {} }) {
 
 async function buildContext(maxItems = 100) {
 
-  if (!cooler) {
-    console.log("No cooler!")
-    return "";
-  } else {
-    console.log("Opening the cooler!")
-  }
+  const context = "";
+  return `[CONTEXT]${context}[/CONTEXT]`;
 
-  const ssb = await cooler.open();
-  return new Promise((resolve, reject) => {
-    pull(
-      ssb.createLogStream({ reverse: true, limit: logLimit }),
-      pull.collect((err, msgs) => {
-        if (err) return reject(err);
-
-        const tombstoned = new Set();
-        const latest = new Map();
-
-        for (const { value } of msgs) {
-          const c = value?.content;
-          if (c?.type === 'tombstone' && c?.target) tombstoned.add(c.target);
-        }
-
-        for (const { key, value } of msgs) {
-          const author = value?.author;
-          const content = value?.content || {};
-          const type = content?.type;
-          const ts = value?.timestamp || 0;
-
-          if (!searchableTypes.includes(type) || tombstoned.has(key)) continue;
-
-          const uniqueKey = type === 'about' ? content.about : key;
-          if (!latest.has(uniqueKey) || (latest.get(uniqueKey)?.value?.timestamp || 0) < ts) {
-            latest.set(uniqueKey, { key, value });
-          }
-        }
-
-        const grouped = {};
-        Array.from(latest.values())
-          .sort((a, b) => (b.value.timestamp || 0) - (a.value.timestamp || 0))
-          .slice(0, maxItems)
-          .forEach(({ value }) => {
-            const content = value.content;
-            const type = content.type;
-            const fields = fieldsForSnippet(type, content).filter(Boolean).map(compact).filter(Boolean).join(' | ');
-            if (!fields) return;
-            const date = new Date(value.timestamp || 0).toISOString().slice(0, 10);
-            grouped[type] = grouped[type] || [];
-            grouped[type].push(`[${date}] (${type}) ${fields}`);
-          });
-
-        const contextSections = Object.entries(grouped)
-          .map(([type, lines]) => `## ${type.toUpperCase()}\n\n${lines.slice(0, 20).join('\n')}`)
-          .join('\n\n');
-
-        const finalContext = contextSections ? contextSections : '';
-        resolve(finalContext);
-      })
-    );
-  });
 }
 
-module.exports = { fieldsForSnippet, buildContext, clip, publishExchange };
+module.exports = { fieldsForSnippet, buildContext };
 

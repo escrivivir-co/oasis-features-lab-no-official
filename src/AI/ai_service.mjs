@@ -5,6 +5,19 @@ import express from 'express';
 import cors from 'cors';
 import { getLlama, LlamaChatSession } from 'node-llama-cpp';
 
+const PORT = process.env.PORT || 3011;
+
+// ✅ GPU Configuration from environment variables
+const GPU_ENABLED = process.env.GPU_ENABLED === 'true' || process.env.GPU_ENABLED === '1';
+const GPU_LAYERS = process.env.GPU_LAYERS ? parseInt(process.env.GPU_LAYERS) : undefined;
+const VRAM_PADDING = process.env.VRAM_PADDING ? parseInt(process.env.VRAM_PADDING) : (GPU_ENABLED ? 256 : 64);
+
+console.log('🚀 AI Service Configuration:');
+console.log(`   GPU Enabled: ${GPU_ENABLED ? 'YES' : 'NO'}`);
+console.log(`   GPU Layers: ${GPU_LAYERS || 'auto'}`);
+console.log(`   VRAM Padding: ${VRAM_PADDING}MB`);
+console.log('');
+
 // Plugin imports - solo si están disponibles
 let functionsPlugin = null;
 try {
@@ -47,11 +60,36 @@ async function initModel() {
   }
   
   console.log("AI Service: Loading model from:", modelPath);
-  llamaInstance = await getLlama({ gpu: false });
-  model = await llamaInstance.loadModel({ modelPath });
-  context = await model.createContext();
-  session = new LlamaChatSession({ contextSequence: context.getSequence() });
+  console.log(`AI Service: GPU configuration - Enabled: ${GPU_ENABLED}, Layers: ${GPU_LAYERS || 'auto'}, VRAM Padding: ${VRAM_PADDING}MB`);
+  
+  llamaInstance = await getLlama({ 
+    gpu: GPU_ENABLED,
+    vramPadding: VRAM_PADDING,
+    logger: GPU_ENABLED ? {
+      log: (level, message) => console.log(`[Llama ${level}]`, message),
+    } : undefined
+  });
+  
+  model = await llamaInstance.loadModel({ 
+    modelPath,
+    gpuLayers: GPU_LAYERS
+  });
+  
+  context = await model.createContext({
+    threads: GPU_ENABLED ? 1 : 4, // Menos hilos para GPU
+    contextSize: 4096,
+  });
+  
+  session = new LlamaChatSession({ 
+    contextSequence: context.getSequence(),
+    autoDisposeSequence: false
+  });
+  
   console.log("AI Service: Model loaded and session initialized.");
+  
+  if (GPU_ENABLED) {
+    console.log("🎯 GPU acceleration enabled for AI service!");
+  }
   ready = true;
 }
 
@@ -61,16 +99,23 @@ async function getFunctionHandler(mode) {
   
   if (mode === 'prod') {
     if (!functionHandlerProd) {
-
-      console.log("ROUTE FOR local_model_handler.mjs")
-      functionHandlerProd = await functionsPlugin.getLocalModelHandler();
+      console.log("ROUTE FOR local_model_handler.mjs - GPU Config:", { gpu: GPU_ENABLED, gpuLayers: GPU_LAYERS, vramPadding: VRAM_PADDING });
+      functionHandlerProd = await functionsPlugin.getLocalModelHandler({
+        gpu: GPU_ENABLED,
+        gpuLayers: GPU_LAYERS,
+        vramPadding: VRAM_PADDING
+      });
     }
     return functionHandlerProd;
   } else if (mode === 'dev') {
     if (!functionHandlerDev) {
-       console.log("ROUTE FOR llama_functions_local.mjs")
-      const modelPath = path.join(__dirname, 'oasis-42-1-chat.Q4_K_M.gguf');
-      functionHandlerDev = functionsPlugin.createLocalLlamaHandler(modelPath, ['fruits', 'system'], { gpu: false });
+       console.log("ROUTE FOR llama_functions_local.mjs - GPU Config:", { gpu: GPU_ENABLED, gpuLayers: GPU_LAYERS, vramPadding: VRAM_PADDING });
+      const modelPath = path.join(__dirname, 'models', 'oasis-42-1-chat.Q4_K_M.gguf');
+      functionHandlerDev = functionsPlugin.createLocalLlamaHandler(modelPath, ['fruits', 'system'], { 
+        gpu: GPU_ENABLED,
+        gpuLayers: GPU_LAYERS,
+        vramPadding: VRAM_PADDING
+      });
       await functionHandlerDev.initialize();
     }
     return functionHandlerDev;
@@ -154,7 +199,7 @@ app.post('/preload', async (req, res) => {
   }
 });
 
-console.log('🤖 Servicio AI Standalone iniciado en puerto 4001');
+console.log(`🤖 Servicio AI Standalone iniciado en puerto ${PORT}`);
 console.log('📋 Endpoints disponibles:');
 console.log('  POST /ai - Procesar consulta AI');
 console.log('  GET /health - Estado del servicio');
@@ -162,11 +207,19 @@ console.log('  GET /status - Estado detallado');
 console.log('  POST /preload - Precargar modelo');
 
 // Precargar el modelo al inicio
-/* console.log('🚀 Iniciando precarga del modelo...');
+console.log('🚀 Iniciando precarga del modelo...');
 initModel().then(() => {
   console.log('✅ Modelo precargado exitosamente');
 }).catch((err) => {
   console.error('❌ Error precargando modelo:', err.message);
-}); */
+});
 
-app.listen(4001);
+app.listen(3011, () => {
+  console.log('🤖 AI Service listening on port 3011');
+}, err => {
+  if (err) {
+    console.error('❌ Error starting AI Service:', err.message);
+  } else {
+    console.log('✅ AI Service started successfully');
+  }   
+});

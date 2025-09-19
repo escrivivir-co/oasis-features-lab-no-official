@@ -238,7 +238,7 @@ class MyCustomChatWrapper extends ChatWrapper {
  * Clase para manejar el modelo local legacy
  */
 export class LocalModelHandler {
-  constructor() {
+  constructor(config = {}) {
     this.llamaInstance = null;
     this.model = null;
     this.context = null;
@@ -246,6 +246,9 @@ export class LocalModelHandler {
     this.ready = false;
     this.functions = new Map();
     this.functionSets = ["fruits"];
+    this.gpu = config.gpu !== false; // Por defecto habilitada, se deshabilita explícitamente
+    this.gpuLayers = config.gpuLayers; // Undefined = automático
+    this.vramPadding = config.vramPadding || 256; // 256MB de padding para GPU grande la mitad para normales --> es la cantidad de megas que no usará y así evitará colapsar la gpu
   }
 
   async initialize() {
@@ -255,25 +258,59 @@ export class LocalModelHandler {
     }
 
     this.initFunctions();
-    const modelPath = path.join(__dirname, "..", "oasis-42-1-chat.Q4_K_M.gguf");
+    const modelPath = path.join(__dirname, "..", "models", "oasis-42-1-chat.Q4_K_M.gguf");
     if (!fs.existsSync(modelPath)) {
       throw new Error(`Model file not found at: ${modelPath}`);
     }
 
     console.log("Initializing local model...");
-    this.llamaInstance = await getLlama({ gpu: false });
-    this.model = await this.llamaInstance.loadModel({ modelPath });
-    this.context = await this.model.createContext();
+    console.log(`GPU enabled: ${this.gpu}`);
+    console.log(`GPU layers: ${this.gpuLayers || 'auto'}`);
+    console.log(`VRAM padding: ${this.vramPadding}MB`);
+    
+    this.llamaInstance = await getLlama({ 
+      gpu: this.gpu,
+      vramPadding: this.vramPadding,
+      logger: {
+        log: (level, message) => console.log(`[Llama ${level}]`, message),
+      }
+    });
+    
+    this.model = await this.llamaInstance.loadModel({ 
+      modelPath,
+      gpuLayers: this.gpuLayers, // undefined = automático, 0 = solo CPU, >0 = cantidad específica
+    });
+    
+    this.context = await this.model.createContext({
+      threads: this.gpu ? 1 : 4, // Menos hilos para GPU, más para CPU
+      contextSize: 4096, // Aumentado para mejor contexto
+    });
 
     this.wrapper = new MyCustomChatWrapper();
 
     this.session = new LlamaChatSession({
       contextSequence: this.context.getSequence(),
       chatWrapper: this.wrapper,
+      autoDisposeSequence: false, // Evitar disposal automático
     });
 
     this.ready = true;
     console.log("Local model initialized successfully");
+    console.log(`Model loaded with GPU: ${this.gpu ? 'YES' : 'NO'}`);
+    
+    // Mostrar estadísticas del modelo
+    if (this.model) {
+      console.log(`Context size: ${this.context.contextSize}`);
+      console.log(`Threads: ${this.context.threadCount || 'auto'}`);
+      
+      // Verificar que el tokenizer esté disponible
+      try {
+        await this.model.tokenize("test");
+        console.log("✅ Tokenizer working correctly");
+      } catch (error) {
+        console.warn("⚠️ Tokenizer issue:", error.message);
+      }
+    }
   }
 
   initFunctions() {
@@ -298,40 +335,58 @@ export class LocalModelHandler {
       await this.initialize();
     }
 
-    this.wrapper.userContext = context;
+    // Verificar que la sesión esté disponible
+    if (!this.session) {
+      throw new Error("Chat session not initialized");
+    }
+
+    this.wrapper.userContext = context || "";
 
     // ✅ Limpiar resultados anteriores
     this.lastFunctionResults = [];
 
-    const usingFunctions =
-      functions || this.getFunctionsForNodeLlamaWithInterception();
-    console.log(
-      "\nFinal prompt",
-      prompt,
-      "Functions: ",
-      usingFunctions,
-      "\n\n Going to local model"
-    );
+    const usingFunctions = functions || this.getFunctionsForNodeLlamaWithInterception();
+    
+    console.log("\nFinal prompt", prompt, "Functions: ", Object.keys(usingFunctions));
+    console.log("\n\n Going to local model");
 
-    const result = await this.session.prompt(prompt, {
-      functions: usingFunctions,
-    });
-    console.log("\n\nBack from local model", result);
-    console.log("Function results captured:", this.lastFunctionResults);
+    try {
+      // Usar prompt simple sin funciones primero para debug
+      if (Object.keys(usingFunctions).length === 0) {
+        const result = await this.session.prompt(prompt);
+        return {
+          answer: result || "No response generated",
+          hadFunctionCalls: false,
+        };
+      }
 
-    // ✅ Si hay resultados de función, generar respuesta natural
-    if (this.lastFunctionResults.length > 0) {
-      const naturalResponse = this.generateNaturalResponseFromResults();
+      // Con funciones
+      const result = await this.session.prompt(prompt, {
+        functions: usingFunctions,
+        maxTokens: 100, // Limitar para evitar timeouts
+        temperature: 0.7,
+      });
+      
+      console.log("\n\nBack from local model", result);
+      console.log("Function results captured:", this.lastFunctionResults);
+
+      // ✅ Si hay resultados de función, generar respuesta natural
+      if (this.lastFunctionResults.length > 0) {
+        const naturalResponse = this.generateNaturalResponseFromResults();
+        return {
+          answer: naturalResponse,
+          hadFunctionCalls: true,
+        };
+      }
+
       return {
-        answer: naturalResponse,
-        hadFunctionCalls: true,
+        answer: result || "No response generated",
+        hadFunctionCalls: Object.keys(usingFunctions).length > 0,
       };
+    } catch (error) {
+      console.error("Error in chat:", error.message);
+      throw error;
     }
-
-    return {
-      answer: result || "No response generated",
-      hadFunctionCalls: Object.keys(usingFunctions).length > 0,
-    };
   }
 
   /**
@@ -416,9 +471,9 @@ export class LocalModelHandler {
 // Instancia singleton
 let localModelHandler = null;
 
-export async function getLocalModelHandler() {
+export async function getLocalModelHandler(config = {}) {
   if (!localModelHandler) {
-    localModelHandler = new LocalModelHandler();
+    localModelHandler = new LocalModelHandler(config);
   }
   return localModelHandler;
 }

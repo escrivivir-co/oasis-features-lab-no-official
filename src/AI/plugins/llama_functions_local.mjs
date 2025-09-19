@@ -109,7 +109,9 @@ class LocalFunctionChatWrapper extends ChatWrapper {
 export class LocalLlamaFunctionHandler {
   constructor(config = {}) {
     this.modelPath = config.modelPath;
-    this.gpu = config.gpu || false;
+    this.gpu = config.gpu !== false; // Por defecto habilitada
+    this.gpuLayers = config.gpuLayers; // undefined = automático
+    this.vramPadding = config.vramPadding || 256; // 256MB de padding para GPU grande la mitad para normales --> es la cantidad de megas que no usará y así evitará colapsar la gpu
     this.llamaInstance = null;
     this.model = null;
     this.context = null;
@@ -128,11 +130,15 @@ export class LocalLlamaFunctionHandler {
     }
 
     console.log("Initializing local Llama model...");
+    console.log(`Model path: ${this.modelPath}`);
+    console.log(`GPU enabled: ${this.gpu}`);
+    console.log(`GPU layers: ${this.gpuLayers || 'auto'}`);
+    console.log(`VRAM padding: ${this.vramPadding}MB`);
 
     // Inicializar con opciones de verbose y mejores configuraciones
     this.llamaInstance = await getLlama({
       gpu: this.gpu,
-      vramPadding: 64, // MB de padding para VRAM
+      vramPadding: this.vramPadding, // MB de padding para VRAM
       logger: {
         log: (level, message) =>
           console.log(`[node-llama-cpp ${level}]`, message),
@@ -142,13 +148,13 @@ export class LocalLlamaFunctionHandler {
     console.log("Loading model from:", this.modelPath);
     this.model = await this.llamaInstance.loadModel({
       modelPath: this.modelPath,
-      gpuLayers: this.gpu ? undefined : 0, // Forzar CPU si gpu=false
+      gpuLayers: this.gpuLayers, // undefined = automático, 0 = solo CPU
     });
 
     console.log("Creating context...");
     this.context = await this.model.createContext({
-      threads: 4, // Número de hilos
-      contextSize: 2048, // Tamaño del contexto
+      threads: this.gpu ? 1 : 4, // Menos hilos para GPU, más para CPU
+      contextSize: 4096, // Aumentado para mejor contexto
     });
 
     this.wrapper = new LocalFunctionChatWrapper();
@@ -156,10 +162,27 @@ export class LocalLlamaFunctionHandler {
     this.session = new LlamaChatSession({
       contextSequence: this.context.getSequence(),
       chatWrapper: this.wrapper,
+      autoDisposeSequence: false, // Evitar disposal automático
     });
 
     this.ready = true;
     console.log(`Local model initialized: ${this.modelPath}`);
+    console.log(`Using GPU: ${this.gpu ? 'YES' : 'NO'}`);
+    console.log(`Context size: ${this.context.contextSize}`);
+    console.log(`Threads: ${this.context.threadCount || 'auto'}`);
+    
+    // Verificar que el tokenizer esté disponible
+    try {
+      await this.model.tokenize("test");
+      console.log("✅ Tokenizer working correctly");
+    } catch (error) {
+      console.warn("⚠️ Tokenizer issue:", error.message);
+    }
+    
+    // Log de uso de VRAM si está disponible
+    if (this.gpu) {
+      console.log('🎯 GPU acceleration enabled - model should run faster!');
+    }
   }
 
   /**
@@ -205,7 +228,13 @@ export class LocalLlamaFunctionHandler {
       await this.initialize();
     }
 
-    this.wrapper.userContext = context;
+    // Verificar que la sesión esté disponible
+    if (!this.session) {
+      throw new Error("Chat session not initialized");
+    }
+
+    // ✅ Corregir: usar systemContext en lugar de context indefinido
+    this.wrapper.userContext = systemContext;
 
     const prompt = [
       `User asks: "${userInput}"`,
@@ -231,80 +260,82 @@ export class LocalLlamaFunctionHandler {
     const functions = this.getFunctionsForNodeLlama();
     console.log("Functions available:", Object.keys(functions));
 
-    // Primera llamada - sin funciones para obtener respuesta raw con timeout
-    console.log("🔄 Starting model inference...");
-    const timer = 5 * 60 * 1000;
-    const answer = await Promise.race([
-      this.session.prompt(prompt, {
-        maxTokens: 150, // Limitar tokens para evitar respuestas muy largas
-        temperature: 0.7,
-        topP: 0.9,
-        onToken: (token) => {
-          // Log progreso de tokens (opcional)
-          process.stdout.write(".");
-        },
-      }),
-      new Promise((_, reject) =>
-        setTimeout(
-          () => reject(new Error("Model inference timeout: " + timer / 1000)),
-          timer
-        )
-      ),
-    ]);
+    try {
+      // Test simple primero si no hay funciones
+      if (Object.keys(functions).length === 0) {
+        console.log("🔄 Starting simple inference (no functions)...");
+        const result = await this.session.prompt(userInput, {
+          maxTokens: 100,
+          temperature: 0.7,
+        });
+        return {
+          answer: String(result || "").trim(),
+          hadFunctionCalls: false,
+        };
+      }
 
-    console.log("\n✅ Model inference completed!");
-    console.log("\nLocal model raw response:", answer);
+      // Con funciones - usar timeout más corto
+      console.log("🔄 Starting model inference with functions...");
+      const timer = 30 * 1000; // 30 segundos
+      const answer = await Promise.race([
+        this.session.prompt(prompt, {
+          maxTokens: 150, // Limitar tokens para evitar respuestas muy largas
+          temperature: 0.7,
+          topP: 0.9,
+          onToken: (token) => {
+            // Log progreso de tokens (opcional)
+            process.stdout.write(".");
+          },
+        }),
+        new Promise((_, reject) =>
+          setTimeout(
+            () => reject(new Error(`Model inference timeout: ${timer / 1000}s`)),
+            timer
+          )
+        ),
+      ]);
 
-    // Buscar y procesar llamadas a funciones manualmente
-    const processedAnswer = await this.processFunctionCalls(answer);
-    let hadFunctionCalls = processedAnswer !== answer;
+      console.log("\n✅ Model inference completed!");
+      console.log("\nLocal model raw response:", answer);
 
-    // Si hubo funciones, hacer segunda llamada para respuesta natural
-    let finalAnswer = processedAnswer;
-    if (hadFunctionCalls) {
-      console.log("\nProcessed with function results:", processedAnswer);
+      // Buscar y procesar llamadas a funciones manualmente
+      const processedAnswer = await this.processFunctionCalls(answer);
+      let hadFunctionCalls = processedAnswer !== answer;
 
-      // Prompt más simple y directo para evitar timeouts
-      const finalPrompt = `The price of an apple is $6. Give a short, natural response.`;
+      // Si hubo funciones, hacer segunda llamada para respuesta natural
+      let finalAnswer = processedAnswer;
+      if (hadFunctionCalls) {
+        console.log("\nProcessed with function results:", processedAnswer);
 
-      console.log("🔄 Generating final response...");
-      try {
-        finalAnswer = await Promise.race([
-          this.session.prompt(finalPrompt, {
-            maxTokens: 50, // Reducido para respuesta más corta
-            temperature: 0.3, // Más determinístico
-            onToken: () => process.stdout.write("."),
-          }),
-          new Promise(
-            (_, reject) =>
-              setTimeout(
-                () => reject(new Error("Final response timeout (20s)")),
-                20000
-              ) // Reducido a 20s
-          ),
-        ]);
-
-        console.log("\n✅ Final response completed!");
-        console.log("\nFinal local response:", finalAnswer);
-      } catch (error) {
-        console.log(
-          "\n⚠️ Final response timeout, using function result directly"
-        );
-        // Si hay timeout, usar directamente el resultado de la función
+        // Extraer resultado de función y crear respuesta natural directa
         const resultMatch = processedAnswer.match(/\[\[result: (.*?)\]\]/);
         if (resultMatch) {
-          const result = JSON.parse(resultMatch[1]);
-          finalAnswer = `The price of ${result.name} is ${result.price}.`;
+          try {
+            const result = JSON.parse(resultMatch[1]);
+            if (result.name && result.price) {
+              finalAnswer = `The price of ${result.name} is ${result.price}.`;
+            } else {
+              finalAnswer = String(result);
+            }
+          } catch (parseError) {
+            finalAnswer = resultMatch[1]; // Usar resultado raw si no es JSON
+          }
         } else {
-          finalAnswer = "The price of an apple is $6.";
+          finalAnswer = "Function executed successfully.";
         }
-      }
-    }
 
-    return {
-      answer: String(finalAnswer || "").trim(),
-      hadFunctionCalls,
-    };
+        console.log("\n✅ Natural response generated:", finalAnswer);
+      }
+
+      return {
+        answer: String(finalAnswer || "").trim(),
+        hadFunctionCalls,
+      };
+
+    } catch (error) {
+      console.error("❌ Error in chat:", error.message);
+      throw error;
+    }
   }
 
   /**

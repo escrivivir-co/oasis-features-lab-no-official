@@ -1,8 +1,67 @@
 {
+  "name": "oasis-ai-service",
+  "version": "1.0.0",
+  "description": "AI service for Oasis with GPU-optimized local models and function calling",
+  "main": "ai_service.mjs",
+  "type": "module",
+
+  "scripts": {
+    "setup": "sh ./install.sh",
+    "build": "node ./ai_service.mjs",
+    "start": "node ./ai_service.mjs",
+    "start:gpu": "start_gpu.bat",
+    "start:cpu": "start_cpu.bat",
+    "start:gpu-conservative": "start_gpu.bat",
+    "start:gpu-max": "start_gpu_max.bat",
+    "start:auto": "start_auto_gpu.bat",
+
+    "gpu:local": "cd plugins && node local_model_handler_test.mjs",
+    "gpu:llama": "cd plugins && node llama_functions_local_test.mjs",
+    
+    "gpu:check": "cd plugins && node -e \"import('./gpu_diagnostics.mjs').then(async (module) => { const { quickGPUCheck } = module; await quickGPUCheck(); }).catch(console.error);\"",
+    "gpu:test-simple": "cd plugins && node test_gpu_simple.mjs",
+    "gpu:test-simple-functions": "cd plugins && node test_simple_functions.mjs",
+    
+    "test:local-model": "cd plugins && node test_gpu_simple.mjs",
+    "test:functions": "cd plugins && node test_simple_functions.mjs",
+    "test:all-gpu": "npm run gpu:check && npm run gpu:test-simple && npm run test:functions",
+    
+    "llama:test-handler": "cd plugins && node test_handler.sh",
+    "llama:test-functions": "cd plugins && node test_llama_functions.sh",
+    "llama:test-no-functions": "cd plugins && node test_no_functions.sh",
+    
+    "diagnostic": "npm run gpu:check",
+    "benchmark": "npm run gpu:test-simple && npm run test:functions",
+    "verify-gpu": "npm run gpu:check && echo 'Running GPU verification...' && npm run gpu:test-simple",
+    
+    "help": "sh ./help.sh",
+    "info": "sh ./help.sh"
+  },
   "dependencies": {
     "cors": "^2.8.5",
     "express": "^5.1.0",
     "node-llama-cpp": "^3.13.0",
     "ollama": "^0.5.18"
+  },
+  "keywords": [
+    "ai",
+    "llama",
+    "gpu",
+    "cuda",
+    "machine-learning",
+    "node-llama-cpp",
+    "oasis",
+    "function-calling",
+    "local-models",
+    "rtx-4090"
+  ],
+  "author": "Oasis Development Team",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "repository": {
+    "type": "git", 
+    "url": "https://github.com/escrivivir-co/oasis-features-lab-no-official.git"
   }
 }
