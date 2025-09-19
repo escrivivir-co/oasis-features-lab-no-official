@@ -1,9 +1,19 @@
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import express from '../server/node_modules/express/index.js';
-import cors from '../server/node_modules/cors/lib/index.js';
-import { getLlama, LlamaChatSession } from '../server/node_modules/node-llama-cpp/dist/index.js';
+import express from 'express';
+import cors from 'cors';
+import { getLlama, LlamaChatSession } from 'node-llama-cpp';
+
+// Plugin imports - solo si están disponibles
+let functionsPlugin = null;
+try {
+  const { createLocalLlamaHandler } = await import('./plugins/llama_functions_local.mjs');
+  const { getLocalModelHandler } = await import('./plugins/local_model_handler.mjs');
+  functionsPlugin = { createLocalLlamaHandler, getLocalModelHandler };
+} catch (error) {
+  console.log('Functions plugin not available, running in basic mode');
+}
 
 const app = express();
 app.use(cors());
@@ -15,6 +25,10 @@ const __dirname = path.dirname(__filename);
 let llamaInstance, model, context, session;
 let ready = false;
 let lastError = null;
+
+// Plugin handlers - inicializados cuando se necesiten
+let functionHandlerProd = null;
+let functionHandlerDev = null;
 
 async function initModel() {
   if (model && ready) {
@@ -41,7 +55,32 @@ async function initModel() {
   ready = true;
 }
 
+// Plugin initialization functions
+async function getFunctionHandler(mode) {
+  if (!functionsPlugin) return null;
+  
+  if (mode === 'prod') {
+    if (!functionHandlerProd) {
+
+      console.log("ROUTE FOR local_model_handler.mjs")
+      functionHandlerProd = await functionsPlugin.getLocalModelHandler();
+    }
+    return functionHandlerProd;
+  } else if (mode === 'dev') {
+    if (!functionHandlerDev) {
+       console.log("ROUTE FOR llama_functions_local.mjs")
+      const modelPath = path.join(__dirname, 'oasis-42-1-chat.Q4_K_M.gguf');
+      functionHandlerDev = functionsPlugin.createLocalLlamaHandler(modelPath, ['fruits', 'system'], { gpu: false });
+      await functionHandlerDev.initialize();
+    }
+    return functionHandlerDev;
+  }
+  
+  return null;
+}
+
 app.post('/ai', async (req, res) => {
+  console.log("Call /ai", req.body)
   try {
     console.log("AI Service: Processing request...");
     const userInput = String(req.body.input || '').trim();
