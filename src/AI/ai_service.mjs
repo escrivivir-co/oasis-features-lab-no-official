@@ -23,7 +23,8 @@ let functionsPlugin = null;
 try {
   const { createLocalLlamaHandler } = await import('./plugins/llama_functions_local.mjs');
   const { getLocalModelHandler } = await import('./plugins/local_model_handler.mjs');
-  functionsPlugin = { createLocalLlamaHandler, getLocalModelHandler };
+  const { createHybridHandler, HYBRID_PRESETS } = await import('./plugins/hybrid_llama_handler.mjs');
+  functionsPlugin = { createLocalLlamaHandler, getLocalModelHandler, createHybridHandler, HYBRID_PRESETS };
 } catch (error) {
   console.log('Functions plugin not available, running in basic mode');
 }
@@ -62,15 +63,49 @@ async function initModel() {
     console.log("AI Service: Loading model from:", modelPath);
     console.log(`AI Service: GPU configuration - Enabled: ${GPU_ENABLED}, Layers: ${GPU_LAYERS || 'auto'}, VRAM Padding: ${VRAM_PADDING}MB`);
     
-    // Use the same handler that worked in tests
-    mainHandler = functionsPlugin.createLocalLlamaHandler(modelPath, ['fruits', 'system'], { 
-      gpu: GPU_ENABLED,
-      gpuLayers: GPU_LAYERS,
-      vramPadding: VRAM_PADDING
-    });
-    
-    await mainHandler.initialize();
+    // Use hybrid handler with MCP integration
+    try {
+      console.log("AI Service: Attempting to create hybrid handler with MCP tools...");
+      mainHandler = await functionsPlugin.createHybridHandler({
+        modelPath,
+        localFunctions: ['fruits', 'system'],
+        mcpServers: [
+          {
+            name: 'localhost',
+            url: 'http://localhost:3003',
+            transport: 'http'
+          }
+        ],
+        gpu: GPU_ENABLED,
+        gpuLayers: GPU_LAYERS,
+        vramPadding: VRAM_PADDING
+      });
+      
+      console.log("✅ Hybrid handler with MCP tools created successfully!");
+      
+    } catch (mcpError) {
+      console.warn("⚠️ MCP server not available, falling back to local functions only:", mcpError.message);
+      // Fallback to local functions only
+      mainHandler = functionsPlugin.createLocalLlamaHandler(modelPath, ['fruits', 'system'], { 
+        gpu: GPU_ENABLED,
+        gpuLayers: GPU_LAYERS,
+        vramPadding: VRAM_PADDING
+      });
+      await mainHandler.initialize();
+    }
     ready = true;
+    
+    // Log function statistics
+    if (mainHandler && typeof mainHandler.getFunctionStats === 'function') {
+      const stats = mainHandler.getFunctionStats();
+      console.log("📊 Function Statistics:");
+      console.log(`   Local functions: ${stats.local.count}`);
+      console.log(`   MCP functions: ${stats.mcp.count}`);
+      console.log(`   Total functions: ${stats.total}`);
+      if (stats.mcp.servers && stats.mcp.servers.length > 0) {
+        console.log(`   MCP servers: ${stats.mcp.servers.join(', ')}`);
+      }
+    }
     
     console.log("AI Service: Model loaded and session initialized.");
     if (GPU_ENABLED) {
