@@ -12,6 +12,29 @@ export class HybridLlamaFunctionHandler extends LocalLlamaFunctionHandler {
   }
 
   /**
+   * Inicializar el handler híbrido con todas las funciones
+   */
+  async initialize() {
+    // Registrar todas las funciones combinadas antes de inicializar el modelo
+    const allFunctions = this.getFunctionsForNodeLlama();
+    
+    // Limpiar funciones existentes
+    this.functions.clear();
+    
+    // Registrar cada función individualmente
+    for (const [name, functionDef] of Object.entries(allFunctions)) {
+      this.registerFunction(name, functionDef);
+    }
+    
+    console.log(`🔧 Registradas ${Object.keys(allFunctions).length} funciones antes de inicializar modelo`);
+    
+    // Luego inicializar el modelo con todas las funciones registradas
+    await super.initialize();
+    
+    console.log('✅ Handler híbrido inicializado con modelo');
+  }
+
+  /**
    * Registrar un servidor MCP adicional
    */
   async registerMCPServer(serverName, serverConfig, transportType = 'http') {
@@ -57,6 +80,9 @@ export class HybridLlamaFunctionHandler extends LocalLlamaFunctionHandler {
         };
       }
     }
+    
+    console.log(`🔧 Combined functions available: ${Object.keys(allFunctions).length}`);
+    console.log(`📋 Function names: ${Object.keys(allFunctions).join(', ')}`);
     
     return allFunctions;
   }
@@ -192,11 +218,28 @@ export async function createHybridHandler(config = {}) {
     ...llamaConfig
   });
 
-  // Inicializar modelo local
-  await handler.initialize();
+  // Registrar servidores MCP ANTES de inicializar
+  if (mcpServers.length > 0) {
+    const mcpRegistrations = mcpServers.map(async (serverConfig) => {
+      const { name, url, transport = 'http' } = serverConfig;
+      return await handler.registerMCPServer(name, url, transport);
+    });
+
+    const mcpResults = await Promise.allSettled(mcpRegistrations);
+    
+    // Reportar resultados
+    mcpResults.forEach((result, index) => {
+      const serverConfig = mcpServers[index];
+      if (result.status === 'fulfilled') {
+        console.log(`✅ Servidor MCP ${serverConfig.name} registrado exitosamente`);
+      } else {
+        console.error(`❌ Error registrando servidor MCP ${serverConfig.name}:`, result.reason);
+      }
+    });
+  }
   
-  // Registrar todas las funciones
-  await handler.registerAllFunctions(localFunctions, mcpServers);
+  // AHORA inicializar con todas las funciones disponibles
+  await handler.initialize();
   
   console.log(`✅ Handler híbrido creado con ${handler.getFunctionStats().total} funciones`);
   

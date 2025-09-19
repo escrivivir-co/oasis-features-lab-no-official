@@ -245,6 +245,7 @@ export class LocalLlamaFunctionHandler {
       `User asks: "${userInput}"`,
       "",
       "CRITICAL: You MUST use functions for specific information. Do NOT make up answers.",
+      "CRITICAL: Use EXACT function names from the list below. NO abbreviations or shortcuts!",
       "",
       "Available functions:",
       ...this.getRegisteredFunctions().map(
@@ -252,12 +253,15 @@ export class LocalLlamaFunctionHandler {
       ),
       "",
       'EXACT format required: [[call: functionName({"param": "value"})]]',
+      'WHERE functionName is EXACTLY one of the names listed above!',
       "",
       "Examples:",
       `User: "apple price?" → You: [[call: getFruitPrice({"name": "apple"})]]`,
       `User: "what time?" → You: [[call: getCurrentTime({})]]`,
+      `User: "server status?" → You: [[call: localhost_get_server_status({})]]`,
+      `User: "list prompts?" → You: [[call: localhost_list_prompts({})]]`,
       "",
-      `For "${userInput}", respond with the function call:`,
+      `For "${userInput}", find the matching function from the list and use its EXACT name:`,
     ].join("\n");
 
     console.log("\nPrompt for local model:", prompt);
