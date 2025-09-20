@@ -374,7 +374,7 @@ export class NodeLLamaCppHandler {
       });
       
       console.log("\n\nBack from local model", result);
-      console.log("Function results captured:", this.lastFunctionResults);
+      // console.log("Function results captured:", this.lastFunctionResults);
 
       // ✅ Si hay resultados de función, generar respuesta natural
       if (this.lastFunctionResults.length > 0) {
@@ -415,7 +415,7 @@ export class NodeLLamaCppHandler {
             result,
           });
 
-          console.log(`✅ Function result: ${name}`, result);
+          console.log(`✅ Function calling succeeded: ${name}`/*, result*/);
           return result;
         },
       };

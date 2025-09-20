@@ -28,7 +28,7 @@
     "test:all-gpu": "npm run gpu:check && npm run gpu:test-simple && npm run test:functions",
     
     "llama:test-handler": "cd plugins && node test_handler.sh",
-    "llama:test-functions": "cd plugins && node test_llama_functions.sh",
+    "llama:test-functions": "cd plugins/ && node test_llama_functions.sh",
     "llama:test-no-functions": "cd plugins && node test_no_functions.sh",
     
     "query-server": "node plugins/mcp_query_server.mjs",

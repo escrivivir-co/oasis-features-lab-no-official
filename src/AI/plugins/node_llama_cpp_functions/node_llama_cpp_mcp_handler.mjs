@@ -9,8 +9,19 @@ export class NodeLLamaCppMCPHandler extends NodeLLamaCppHandler {
   constructor(config = {}) {
     super(config);
     
-    // Aplicar MCPMixin
-    Object.assign(this, new MCPMixin());
+    // Aplicar MCPMixin correctamente
+    const mcpMixin = new MCPMixin();
+    
+    // Copiar todas las propiedades del mixin
+    Object.assign(this, mcpMixin);
+    
+    // Copiar todos los métodos del prototype del mixin
+    const mcpProto = Object.getPrototypeOf(mcpMixin);
+    Object.getOwnPropertyNames(mcpProto).forEach(name => {
+      if (name !== 'constructor' && typeof mcpProto[name] === 'function') {
+        this[name] = mcpProto[name].bind(this);
+      }
+    });
     
     // Procesar functionSets usando NODE_LLAMA_CPP_CONFIGS
     const { functionSets = [] } = config;
@@ -75,15 +86,15 @@ export class NodeLLamaCppMCPHandler extends NodeLLamaCppHandler {
     
     // Crear handler interceptado que ejecuta en MCP usando el mixin
     const mcpHandler = async (params) => {
-      console.log(`🔄 NodeLLamaCppMCPHandler: Ejecutando función MCP ${name} -> ${serverInfo.toolName} en ${serverInfo.serverName}`);
+      console.log(`🔄 NodeLLamaCppMCPHandler: execute ${name} -> ${serverInfo.toolName} at ${serverInfo.serverName}`);
       
       try {
         // Usar el método del mixin para ejecutar
         const result = await this.executeMCPFunction(name, params);
-        console.log(`✅ NodeLLamaCppMCPHandler: Función MCP ${name} ejecutada exitosamente`);
+        console.log(`✅ NodeLLamaCppMCPHandler: ${name} succeded!`);
         return result;
       } catch (error) {
-        console.error(`❌ NodeLLamaCppMCPHandler: Error ejecutando función MCP ${name}:`, error);
+        console.error(`❌ NodeLLamaCppMCPHandler: Error at ${name}:`, error);
         throw error;
       }
     };
@@ -96,7 +107,7 @@ export class NodeLLamaCppMCPHandler extends NodeLLamaCppHandler {
     };
 
     this.functions.set(name, nodeLlamaFunction);
-    console.log(`🔧 NodeLLamaCppMCPHandler: Función MCP registrada: ${name}`);
+    // console.log(`🔧 NodeLLamaCppMCPHandler: Función MCP registrada: ${name}`);
   }
 
   /**
@@ -194,7 +205,7 @@ export async function createMCPModelHandler(config = {}) {
   }
   
   // AHORA inicializar con todas las funciones disponibles
-  console.log('🏭 CreateMCPModelHandler: Iniciando inicialización del handler...');
+  console.log('🏭 CreateMCPModelHandler: inicialización del handler...');
   await handler.initialize();
   
   console.log(`✅ CreateMCPModelHandler: Handler MCP nativo creado con ${handler.getFunctionStats().total} funciones`);

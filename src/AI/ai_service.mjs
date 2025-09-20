@@ -211,7 +211,7 @@ app.post('/ai', async (req, res) => {
 
     // Si hay modo de funciones disponible, usar el plugin
     if (functionMode !== 'none' && functionsPlugin) {
-      console.log(`🚀 AI Service: Iniciando modo '${functionMode}' para request:`, req.body);
+      console.log(`🚀 AI Service: Iniciando modo '${functionMode}'!`);
       const handler = await getFunctionHandler(functionMode);
       if (handler) {
         let userContext = '';

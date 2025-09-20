@@ -173,7 +173,7 @@ export class MCPMixin {
       );
       
       if (mcpResult.success) {
-        console.log(`✅ MCPMixin: Función MCP ${functionName} ejecutada exitosamente`);
+        // console.log(`✅ MCPMixin: ${functionName} success!`);
         
         // Almacenar resultado para debugging
         this.lastMCPResults.push({
@@ -205,7 +205,7 @@ export class MCPMixin {
     
     const mcpRegistrations = mcpServers.map(async (serverConfig) => {
       const { name, url, transport = 'http' } = serverConfig;
-      console.log(`🔧 MCPMixin: Registrando servidor ${name} en ${url}...`);
+      console.log(`🔧 MCPMixin: Register server ${name} at ${url}...`);
       return await this.registerMCPServer(name, url, transport);
     });
 

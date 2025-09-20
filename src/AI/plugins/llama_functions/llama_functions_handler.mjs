@@ -171,7 +171,7 @@ export class LlamaFunctionHandler {
     });
 
     this.ready = true;
-    console.log(`Local model initialized: ${this.modelPath}`);
+    console.log(`Local model initialized!`);
     console.log(`Using GPU: ${this.gpu ? 'YES' : 'NO'}`);
     console.log(`Context size: ${this.context.contextSize}`);
     console.log(`Threads: ${this.context.threadCount || 'auto'}`);
@@ -202,7 +202,7 @@ export class LlamaFunctionHandler {
     };
 
     this.functions.set(name, nodeLlamaFunction);
-    console.log(`Local function registered: ${name}`);
+    // console.log(`Local function registered: ${name}`);
   }
 
   /**
@@ -429,9 +429,9 @@ export class LlamaFunctionHandler {
   async generateNaturalResponse(originalQuery, functionResults) {
     try {
       console.log("🔄 Starting natural response generation...");
-      console.log("📝 Original query:", originalQuery);
-      console.log("📊 Function results:", functionResults.replace(/\s+/g, ' ').substring(0, 200) + "...");
-      console.log("� Function results length:", functionResults.length);
+      // console.log("📝 Original query:", originalQuery);
+      // console.log("📊 Function results:", functionResults.replace(/\s+/g, ' ').substring(0, 200) + "...");
+      console.log("📊 Function results length:", functionResults.length);
       
       // Regex más robusto para capturar resultados multi-línea
       const resultMatch = functionResults.match(/\[\[result:\s*(\{[\s\S]*?\})\s*\]\]/);
@@ -471,17 +471,17 @@ export class LlamaFunctionHandler {
           topP: 0.9,
         });
 
-        console.log("🎯 Generated natural response:", naturalResponse);
+        // console.log("🎯 Generated natural response:", naturalResponse);
         return String(naturalResponse || "").trim();
       }
 
-      console.log("📋 Raw result match:", resultMatch[1].replace(/\s+/g, ' ').substring(0, 100) + "...");
+      // console.log("📋 Raw result match:", resultMatch[1].replace(/\s+/g, ' ').substring(0, 100) + "...");
 
       let functionData;
       try {
         functionData = JSON.parse(resultMatch[1]);
         console.log("✅ Successfully parsed function data:", typeof functionData);
-        console.log("📄 Parsed data keys:", Object.keys(functionData || {}));
+        // console.log("📄 Parsed data keys:", Object.keys(functionData || {}));
       } catch (parseError) {
         console.log("⚠️ Failed to parse as JSON, using raw data");
         console.log("❌ Parse error:", parseError.message);
@@ -491,7 +491,7 @@ export class LlamaFunctionHandler {
       // Crear prompt para respuesta natural
       const responsePrompt = this.createResponsePrompt(originalQuery, functionData);
       
-      console.log("🔄 Generating natural response with prompt (truncated for readability)");
+      // console.log("🔄 Generating natural response with prompt (truncated for readability)");
       // console.log("=" + "=".repeat(50));
       // console.log(responsePrompt);
       // console.log("=" + "=".repeat(50));
@@ -503,7 +503,7 @@ export class LlamaFunctionHandler {
         topP: 0.9,
       });
 
-      console.log("🎯 Generated natural response:", String(naturalResponse || "").trim().substring(0, 150) + "...");
+      // console.log("🎯 Generated natural response:", String(naturalResponse || "").trim().substring(0, 150) + "...");
       console.log("📏 Response length:", String(naturalResponse || "").length);
 
       return String(naturalResponse || "").trim();
@@ -530,7 +530,7 @@ export class LlamaFunctionHandler {
     
     // Analizar la estructura de los datos para generar un prompt inteligente
     const dataAnalysis = this.analyzeFunctionData(functionData);
-    console.log("🔍 Data analysis result:", dataAnalysis);
+    // console.log("🔍 Data analysis result:", dataAnalysis);
     
     // Crear prompt adaptativo basado en el análisis
     const prompt = `You are an AI assistant helping a user understand information. The user asked: "${originalQuery}"
@@ -561,9 +561,9 @@ Respond naturally as if you're explaining this information to a colleague:`;
    * Analizar la estructura y contenido de los datos de función
    */
   analyzeFunctionData(data) {
-    console.log("\n🔍 Analyzing function data...");
-    console.log("📊 Raw data:", data);
-    console.log("📈 Data type:", typeof data);
+    // console.log("\n🔍 Analyzing function data...");
+    // console.log("📊 Raw data:", data);
+    // console.log("📈 Data type:", typeof data);
     
     if (typeof data === 'string') {
       console.log("🔄 Attempting to parse string as JSON...");
@@ -650,7 +650,7 @@ Respond naturally as if you're explaining this information to a colleague:`;
       structure: structure
     };
     
-    console.log("📊 Analysis complete:", analysis);
+    // console.log("📊 Analysis complete:", analysis);
     return analysis;
   }
 
@@ -659,8 +659,8 @@ Respond naturally as if you're explaining this information to a colleague:`;
    */
   createFallbackResponse(originalQuery, functionResults) {
     console.log("\n🔄 Creating fallback response...");
-    console.log("📝 Query:", originalQuery);
-    console.log("📊 Function results:", functionResults);
+    // console.log("📝 Query:", originalQuery);
+    // console.log("📊 Function results:", functionResults);
     
     const resultMatch = functionResults.match(/\[\[result: (.*?)\]\]/);
     if (!resultMatch) {

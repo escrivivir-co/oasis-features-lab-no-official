@@ -88,11 +88,11 @@ export class MCPFunctionHandler {
       }
 
       // Ejecutar la tool en el servidor MCP
-      console.log(`🔧 Ejecutando ${serverName}.${toolName} con parámetros:`, parameters);
+      console.log(`🔧 Execute ${serverName}.${toolName} with params:`, parameters);
       
       const result = await extractor.callTool(toolName, parameters);
       
-      console.log(`✅ Resultado de ${serverName}.${toolName}:`, result);
+      console.log(`✅ Back from ${serverName}.${toolName}!`);
       
       // Formatear resultado para node-llama-cpp
       return this.formatResult(result);

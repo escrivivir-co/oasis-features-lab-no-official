@@ -8,8 +8,19 @@ export class LlamaFunctionMCPHandler extends LlamaFunctionHandler {
   constructor(config = {}) {
     super(config);
     
-    // Aplicar MCPMixin
-    Object.assign(this, new MCPMixin());
+    // Aplicar MCPMixin correctamente
+    const mcpMixin = new MCPMixin();
+    
+    // Copiar todas las propiedades del mixin
+    Object.assign(this, mcpMixin);
+    
+    // Copiar todos los métodos del prototype del mixin
+    const mcpProto = Object.getPrototypeOf(mcpMixin);
+    Object.getOwnPropertyNames(mcpProto).forEach(name => {
+      if (name !== 'constructor' && typeof mcpProto[name] === 'function') {
+        this[name] = mcpProto[name].bind(this);
+      }
+    });
     
     this.functionsCache = null; // Cache para evitar recalcular funciones
   }
@@ -18,16 +29,15 @@ export class LlamaFunctionMCPHandler extends LlamaFunctionHandler {
    * Inicializar el handler híbrido con todas las funciones
    */
   async initialize() {
-    console.log('🔧 HybridHandler: INICIANDO inicialización...');
-    
+        
     // Verificar si ya está inicializado
     if (this.ready) {
-      console.log('✅ HybridHandler: Ya estaba inicializado, omitiendo...');
+      console.log('✅ LLamaFunctionsMCPHandler: Ya estaba inicializado, omitiendo...');
       return;
     }
     
     // Construir y cachear todas las funciones combinadas ANTES de inicializar el modelo
-    console.log('🔧 HybridHandler: Construyendo mapa de funciones combinadas...');
+    console.log('🔧 LLamaFunctionsMCPHandler: Construyendo mapa de funciones combinadas...');
     this.functionsCache = this._buildCombinedFunctions();
     
     // Limpiar funciones existentes y registrar todas las funciones
@@ -38,13 +48,13 @@ export class LlamaFunctionMCPHandler extends LlamaFunctionHandler {
       this.registerFunction(name, functionDef);
     }
     
-    console.log(`🔧 HybridHandler: Registradas ${Object.keys(this.functionsCache).length} funciones antes de inicializar modelo`);
+    console.log(`🔧 LLamaFunctionsMCPHandler: Registradas ${Object.keys(this.functionsCache).length} funciones antes de inicializar modelo`);
     
     // Luego inicializar el modelo con todas las funciones registradas
-    console.log('🔧 HybridHandler: Llamando super.initialize() para modelo local...');
+    console.log('🔧 LLamaFunctionsMCPHandler: Llamando super.initialize() para modelo local...');
     await super.initialize();
     
-    console.log('✅ HybridHandler: Inicialización COMPLETADA exitosamente');
+    console.log('✅ LLamaFunctionsMCPHandler: Inicialización COMPLETADA exitosamente');
   }
 
   /**
@@ -73,7 +83,7 @@ export class LlamaFunctionMCPHandler extends LlamaFunctionHandler {
     const allFunctions = { ...localFunctions, ...mcpFunctionMap };
     
     console.log(`🔧 Combined functions available: ${Object.keys(allFunctions).length}`);
-    console.log(`📋 Function names: ${Object.keys(allFunctions).join(', ')}`);
+    // console.log(`📋 Function names: ${Object.keys(allFunctions).join(', ')}`);
     
     return allFunctions;
   }
@@ -345,7 +355,7 @@ export class LlamaFunctionMCPHandler extends LlamaFunctionHandler {
           `[[result: ${resultStr}]]`
         );
 
-        console.log(`✅ Function ${functionName} result:`, result);
+        console.log(`✅ Function ${functionName} refactored!:`);
         hadAnyFunctionCalls = true;
         
       } catch (error) {
@@ -406,7 +416,7 @@ export class LlamaFunctionMCPHandler extends LlamaFunctionHandler {
  * Factory function para crear handler híbrido preconfigurado
  */
 export async function getLLamaFunctionsMCPHandler(config = {}) {
-  console.log('🏭 CreateHybridHandler: Iniciando creación con config:', Object.keys(config));
+  console.log('🏭 LLamaFunctionsMCPHandler: Iniciando creación con config:', Object.keys(config));
   
   const {
     modelPath,
@@ -415,7 +425,7 @@ export async function getLLamaFunctionsMCPHandler(config = {}) {
     ...llamaConfig
   } = config;
 
-  console.log('🏭 CreateHybridHandler: Creando instancia de LlamaFunctionMCPHandler...');
+  console.log('🏭 LLamaFunctionsMCPHandler: Creando instancia de LlamaFunctionMCPHandler...');
   const handler = new LlamaFunctionMCPHandler({
     modelPath,
     ...llamaConfig
@@ -423,17 +433,17 @@ export async function getLLamaFunctionsMCPHandler(config = {}) {
 
   // Registrar servidores MCP ANTES de inicializar
   if (mcpServers.length > 0) {
-    console.log(`🏭 CreateHybridHandler: Registrando ${mcpServers.length} servidores MCP...`);
+    console.log(`🏭 LLamaFunctionsMCPHandler: Registrando ${mcpServers.length} servidores MCP...`);
     
     const mcpResult = await handler.registerMCPServers(mcpServers);
-    console.log(`✅ CreateHybridHandler: ${mcpResult.registered} servidores registrados, ${mcpResult.errors} errores`);
+    console.log(`✅ LLamaFunctionsMCPHandler: ${mcpResult.registered} servidores registrados, ${mcpResult.errors} errores`);
   }
   
   // AHORA inicializar con todas las funciones disponibles
-  console.log('🏭 CreateHybridHandler: Iniciando inicialización del handler...');
+  console.log('🏭 LLamaFunctionsMCPHandler: init...');
   await handler.initialize();
   
-  console.log(`✅ CreateHybridHandler: Handler híbrido creado con ${handler.getFunctionStats().total} funciones`);
+  console.log(`✅ LLamaFunctionsMCPHandler: inited!`);
   
   return handler;
 }
