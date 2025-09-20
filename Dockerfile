@@ -35,7 +35,7 @@ WORKDIR /app/src/server
 RUN npm install --no-bin-links --ignore-scripts
 
 # Exponer puertos
-EXPOSE 8008 3000
+EXPOSE 8008 3000 4001
 
 # Punto de entrada integrado
 ENTRYPOINT ["/app/docker-entrypoint.sh"]

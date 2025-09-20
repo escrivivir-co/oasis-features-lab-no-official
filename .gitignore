@@ -15,6 +15,7 @@ yarn-error.log*
 
 # Volúmenes Docker - NO versionar datos persistentes
 volumes/
+volumes-dev/
 backups/
 
 # Logs

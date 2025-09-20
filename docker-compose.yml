@@ -4,20 +4,20 @@
 # =============================================================================
 
 services:
-  oasis:
+  oasis-dev:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: oasis-server
+    container_name: oasis-server-dev
     ports:
       - "8008:8008"   # Puerto SSB
       - "3000:3000"   # Puerto cliente web
       - "4001:4001"   # Puerto servicio AI
     volumes:
       # Volumenes persistentes para datos críticos
-      - oasis-ssb-data:/home/oasis/.ssb
-      - oasis-ai-models:/app/src/AI/models
-      - oasis-logs:/app/logs
+      - oasis-ssb-data-dev:/home/oasis/.ssb
+      - oasis-ai-models-dev:/app/src/AI/models
+      - oasis-logs-dev:/app/logs
       
       # Volumen de desarrollo opcional (descomenta para desarrollo)
       # - ./src:/app/src:ro
@@ -33,28 +33,28 @@ services:
 
 # Volumenes persistentes nombrados
 volumes:
-  oasis-ssb-data:
+  oasis-ssb-data-dev:
     driver: local
     driver_opts:
       type: none
       o: bind
-      device: ./volumes/ssb-data
+      device: ./volumes-dev/ssb-data
   
-  oasis-ai-models:
+  oasis-ai-models-dev:
     driver: local
     driver_opts:
       type: none
       o: bind
-      device: ./volumes/ai-models
+      device: ./volumes-dev/ai-models
   
-  oasis-logs:
+  oasis-logs-dev:
     driver: local
     driver_opts:
       type: none
       o: bind
-      device: ./volumes/logs
+      device: ./volumes-dev/logs
 
 # Red personalizada (opcional para futura expansión)
 networks:
   default:
-    name: oasis-network
+    name: oasis-network-dev
