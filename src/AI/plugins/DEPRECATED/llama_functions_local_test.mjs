@@ -1,6 +1,6 @@
 import path from "path";
 import { fileURLToPath } from "url";
-import { createLocalLlamaHandler, LOCAL_FUNCTION_CONFIGS } from "../llama_functions_handler.mjs";
+import { getLLamaFunctionsHandler, LOCAL_FUNCTION_CONFIGS } from "../llama_functions_handler.mjs";
 import { GPUDiagnostics } from "../gpu_diagnostics.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -33,7 +33,7 @@ async function testRefactoredFunctions() {
     
     // Crear handler con funciones
     console.log('📥 Creando handler con funciones...');
-    const handler = createLocalLlamaHandler(
+    const handler = getLLamaFunctionsHandler(
       modelPath,
       ["fruits", "system"], // Cargar funciones de frutas y sistema
       config

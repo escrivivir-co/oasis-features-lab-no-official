@@ -4,7 +4,7 @@
  * Script de prueba para validar la implementación MCP-to-Llama
  */
 
-import { createHybridHandler, HYBRID_PRESETS } from '../llama_functions_mcp_handler.mjs';
+import { getLLamaFunctionsMCPHandler, HYBRID_PRESETS } from '../llama_functions_mcp_handler.mjs';
 import { getMCPFunctionHandler } from '../mcp_function_handler.mjs';
 
 async function testMCPExtraction() {
@@ -61,7 +61,7 @@ async function testHybridHandler() {
   try {
     // Test 1: Handler solo con funciones locales
     console.log('🏠 Test 1: Handler con funciones locales');
-    const localHandler = await createHybridHandler({
+    const localHandler = await getLLamaFunctionsMCPHandler({
       modelPath: './models/oasis-42-1-chat.Q4_K_M.gguf',
       localFunctions: ['fruits', 'system'],
       mcpServers: []
@@ -74,7 +74,7 @@ async function testHybridHandler() {
     // Test 2: Configuración híbrida (fallback si no hay servidor MCP)
     console.log('\n🔗 Test 2: Configuración híbrida');
     try {
-      const hybridHandler = await createHybridHandler({
+      const hybridHandler = await getLLamaFunctionsMCPHandler({
         modelPath: './models/oasis-42-1-chat.Q4_K_M.gguf',
         ...HYBRID_PRESETS.development
       });

@@ -20,13 +20,13 @@ echo ""
 echo "3. Testing local model with GPU (basic test):"
 node -e "
 import('./node_llama_cpp_handler.mjs').then(async (module) => {
-  const { getLocalModelHandler } = module;
+  const { getNodeLlamaCppHandler } = module;
   
   console.log('🚀 Testing with GPU enabled...');
   
   try {
     // Configuración con GPU habilitada
-    const handler = await getLocalModelHandler({
+    const handler = await getNodeLlamaCppHandler({
       gpu: true,
       gpuLayers: undefined, // automático
       vramPadding: 128

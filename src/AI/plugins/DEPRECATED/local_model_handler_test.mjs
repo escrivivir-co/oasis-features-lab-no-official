@@ -1,6 +1,6 @@
 import path from "path";
 import { fileURLToPath } from "url";
-import { getLocalModelHandler } from "../node_llama_cpp_handler.mjs";
+import { getNodeLlamaCppHandler } from "../node_llama_cpp_handler.mjs";
 import { GPUDiagnostics } from "../system/gpu_diagnostics.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -25,7 +25,7 @@ async function testGPUPerformance() {
   try {
     // Obtener handler con configuración GPU
     console.log('📥 Inicializando modelo con GPU...');
-    const handler = await getLocalModelHandler(config);
+    const handler = await getNodeLlamaCppHandler(config);
     
     // Verificar VRAM antes de cargar
     const beforeVRAM = await GPUDiagnostics.checkNvidiaGPU();

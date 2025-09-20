@@ -491,7 +491,7 @@ export class LocalModelHandler {
 // Instancia singleton
 let localModelHandler = null;
 
-export async function getLocalModelHandler(config = {}) {
+export async function getNodeLlamaCppHandler(config = {}) {
   if (!localModelHandler) {
     localModelHandler = new LocalModelHandler(config);
   }

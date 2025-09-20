@@ -815,7 +815,7 @@ export const LOCAL_FUNCTION_CONFIGS = {
 /**
  * Factory function para crear handlers preconfigurados
  */
-export function createLocalLlamaHandler(
+export function getLLamaFunctionsHandler(
   modelPath,
   functionSets = ["fruits"],
   config = {}

@@ -21,11 +21,11 @@ console.log('');
 // Plugin imports - solo si están disponibles
 let functionsPlugin = null;
 try {
-  const { createLocalLlamaHandler } = await import('./plugins/llama_functions_handler.mjs');
-  const { getLocalModelHandler } = await import('./plugins/node_llama_cpp_handler.mjs');
-  const { createHybridHandler, HYBRID_PRESETS } = await import('./plugins/llama_functions_mcp_handler.mjs');
-  const { getMCPModelHandler } = await import('./plugins/mcp/node_llama_cpp_mcp_handler.mjs');
-  functionsPlugin = { createLocalLlamaHandler, getLocalModelHandler, createHybridHandler, getMCPModelHandler, HYBRID_PRESETS };
+  const { getLLamaFunctionsHandler } = await import('./plugins/llama_functions_handler.mjs');
+  const { getNodeLlamaCppHandler } = await import('./plugins/node_llama_cpp_handler.mjs');
+  const { getLLamaFunctionsMCPHandler, HYBRID_PRESETS } = await import('./plugins/llama_functions_mcp_handler.mjs');
+  const { getNodeLlamaCppMCPHandler } = await import('./plugins/node_llama_cpp_mcp_handler.mjs');
+  functionsPlugin = { getLLamaFunctionsHandler, getNodeLlamaCppHandler, getLLamaFunctionsMCPHandler, getNodeLlamaCppMCPHandler, HYBRID_PRESETS };
 } catch (error) {
   console.log('Functions plugin not available, running in basic mode');
 }
@@ -103,10 +103,10 @@ async function getFunctionHandler(mode) {
   const modelPath = path.join(__dirname, 'models', 'oasis-42-1-chat.Q4_K_M.gguf');
   
   switch (mode) {
-    case 'prod': {
+    case 'node_llama_cpp_functions': {
       if (!functionHandlerProd) {
         console.log("🔧 AI Service: Creando handler PROD (node_llama_cpp_handler.mjs)");
-        functionHandlerProd = await functionsPlugin.getLocalModelHandler({
+        functionHandlerProd = await functionsPlugin.getNodeLlamaCppHandler({
           modelPath,
           functionSets: ['fruits', 'system'],
           gpu: GPU_ENABLED,
@@ -119,10 +119,10 @@ async function getFunctionHandler(mode) {
       }
       return functionHandlerProd;
     }
-    case 'dev': {
+    case 'llama_functions': {
       if (!functionHandlerDev) {
         console.log("🔧 AI Service: Creando handler DEV (llama_functions_handler.mjs)");
-        functionHandlerDev = await functionsPlugin.createLocalLlamaHandler(modelPath, ['fruits', 'system'], {
+        functionHandlerDev = await functionsPlugin.getLLamaFunctionsHandler(modelPath, ['fruits', 'system'], {
           gpu: GPU_ENABLED,
           gpuLayers: GPU_LAYERS,
           vramPadding: VRAM_PADDING
@@ -135,14 +135,14 @@ async function getFunctionHandler(mode) {
       }
       return functionHandlerDev;
     }
-    case 'mcp': {
+    case 'llama_MCP_functions': {
       if (!functionHandlerMcp) {
         console.log("🔧 AI Service: Creando handler MCP (llama_functions_mcp_handler.mjs)");
         console.log("🔧 AI Service: Registrando servidor MCP localhost:3003...");
         
-        // ⚠️ CRÍTICO: createHybridHandler YA inicializa el handler internamente
+        // ⚠️ CRÍTICO: getLLamaFunctionsMCPHandler YA inicializa el handler internamente
         // NO llamar initialize() después o se duplicará la inicialización
-        functionHandlerMcp = await functionsPlugin.createHybridHandler({
+        functionHandlerMcp = await functionsPlugin.getLLamaFunctionsMCPHandler({
           modelPath,
           localFunctions: ['fruits', 'system'],
           mcpServers: [
@@ -162,12 +162,12 @@ async function getFunctionHandler(mode) {
       }
       return functionHandlerMcp;
     }
-    case 'mcpNative': {
+    case 'node_llama_cpp_MCP_functions': {
       if (!functionHandlerMcpNative) {
         console.log("🔧 AI Service: Creando handler MCP Native (node_llama_cpp_mcp_handler.mjs)");
         console.log("🔧 AI Service: Usando node-llama-cpp nativo para funciones MCP...");
         
-        functionHandlerMcpNative = await functionsPlugin.getMCPModelHandler({
+        functionHandlerMcpNative = await functionsPlugin.getNodeLlamaCppMCPHandler({
           modelPath,
           functionSets: ['fruits', 'system'],
           mcpServers: [
@@ -202,10 +202,10 @@ app.post('/ai', async (req, res) => {
 
     // Detectar modo de funciones desde request o config
     const functionMode = req.body.functionMode ||
-      (req.body.useFunctionsMcp ? 'mcp' :
-        req.body.useFunctionsMcpNative ? 'mcpNative' :
-        req.body.useFunctionsProd ? 'prod' :
-        req.body.useFunctionsDev ? 'dev' :
+      (req.body.llama_MCP_functions ? 'llama_MCP_functions' :
+        req.body.node_llama_cpp_MCP_functions ? 'node_llama_cpp_MCP_functions' :
+        req.body.node_llama_cpp_functions ? 'node_llama_cpp_functions' :
+        req.body.llama_functions ? 'llama_functions' :
           req.body.useFunctions === false ? 'none' :
             'none'); // Por defecto sin funciones para compatibilidad
 
@@ -346,10 +346,10 @@ app.listen(PORT, () => {
   console.log(`🚀 AI Service starting on port ${PORT}`);
   console.log('📍 Available modes:');
   console.log('  • Default: POST /ai {"input": "question"}');
-  console.log('  • Functions MCP Manual: POST /ai {"input": "question", "useFunctionsMcp": true}');
-  console.log('  • Functions MCP Native: POST /ai {"input": "question", "useFunctionsMcpNative": true}');
-  console.log('  • Functions Prod: POST /ai {"input": "question", "useFunctionsProd": true}');
-  console.log('  • Functions Dev: POST /ai {"input": "question", "useFunctionsDev": true}');
+  console.log('  • Functions MCP Manual: POST /ai {"input": "question", "llama_MCP_functions": true}');
+  console.log('  • Functions MCP Native: POST /ai {"input": "question", "node_llama_cpp_MCP_functions": true}');
+  console.log('  • Functions Prod: POST /ai {"input": "question", "node_llama_cpp_functions": true}');
+  console.log('  • Functions Dev: POST /ai {"input": "question", "llama_functions": true}');
   console.log('  • No Functions: POST /ai {"input": "question", "useFunctions": false}');
   if (!functionsPlugin) {
     console.log('⚠️  Functions plugin not loaded - only legacy mode available');

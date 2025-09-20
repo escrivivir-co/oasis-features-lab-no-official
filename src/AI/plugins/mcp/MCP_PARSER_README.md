@@ -42,10 +42,10 @@ npm run query-server -- hybrid -o hybrid_config.json
 ### 2. Handler Híbrido en Código
 
 ```javascript
-import { createHybridHandler, HYBRID_PRESETS } from './plugins/llama_functions_mcp_handler.mjs';
+import { getLLamaFunctionsMCPHandler, HYBRID_PRESETS } from './plugins/llama_functions_mcp_handler.mjs';
 
 // Handler con funciones locales + MCP
-const handler = await createHybridHandler({
+const handler = await getLLamaFunctionsMCPHandler({
   modelPath: './models/oasis-42-1-chat.Q4_K_M.gguf',
   localFunctions: ['fruits', 'system'],
   mcpServers: [
@@ -73,13 +73,13 @@ console.log(`Locales: ${stats.local.count}, MCP: ${stats.mcp.count}`);
 import { HYBRID_PRESETS } from './plugins/llama_functions_mcp_handler.mjs';
 
 // Solo funciones locales
-const localHandler = await createHybridHandler({
+const localHandler = await getLLamaFunctionsMCPHandler({
   modelPath: './models/oasis-42-1-chat.Q4_K_M.gguf',
   ...HYBRID_PRESETS.local
 });
 
 // Con servidor de desarrollo
-const devHandler = await createHybridHandler({
+const devHandler = await getLLamaFunctionsMCPHandler({
   modelPath: './models/oasis-42-1-chat.Q4_K_M.gguf',
   ...HYBRID_PRESETS.development
 });
@@ -189,7 +189,7 @@ npm run query-server -- extract -s http://localhost:3003 -o config.json --pretty
 ### Usar en Código
 ```javascript
 // Ejemplo básico
-const handler = await createHybridHandler({
+const handler = await getLLamaFunctionsMCPHandler({
   modelPath: './models/oasis-42-1-chat.Q4_K_M.gguf',
   localFunctions: ['system'],
   mcpServers: [

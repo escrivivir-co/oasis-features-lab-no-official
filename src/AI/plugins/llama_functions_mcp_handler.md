@@ -24,12 +24,12 @@ Debugger attached.
 🚀 AI Service starting on port 3011
 📍 Available modes:
   • Default: POST /ai {"input": "question"}
-  • Functions Prod: POST /ai {"input": "question", "useFunctionsMcp": true}
-  • Functions Prod: POST /ai {"input": "question", "useFunctionsProd": true}
-  • Functions Dev: POST /ai {"input": "question", "useFunctionsDev": true}
+  • Functions Prod: POST /ai {"input": "question", "llama_MCP_functions": true}
+  • Functions Prod: POST /ai {"input": "question", "node_llama_cpp_functions": true}
+  • Functions Dev: POST /ai {"input": "question", "llama_functions": true}
   • No Functions: POST /ai {"input": "question", "useFunctions": false}
-Call /ai { input: 'What is the current server status?', useFunctionsMcp: true }
-Start /ai Plugins! { input: 'What is the current server status?', useFunctionsMcp: true }
+Call /ai { input: 'What is the current server status?', llama_MCP_functions: true }
+Start /ai Plugins! { input: 'What is the current server status?', llama_MCP_functions: true }
 ROUTE FOR llama_functions_handler.mjs
 
 
@@ -113,7 +113,7 @@ Threads: auto
 
 
 
-Start /ai Plugins! { input: 'What is the current server status?', useFunctionsMcp: true }
+Start /ai Plugins! { input: 'What is the current server status?', llama_MCP_functions: true }
 🔧 Combined functions available: 20
 📋 Function names: localhost_list_prompts, localhost_add_prompt, localhost_edit_prompt, localhost_delete_prompt, localhost_get_prompt, localhost_list_resources, localhost_add_resource, localhost_edit_resource, localhost_delete_resource, localhost_get_resource, localhost_start_system, localhost_open_web_console, localhost_get_server_status, localhost_get_server_info, localhost_set_user_personality, localhost_simulate_user_decision, localhost_simulate_agent_selection, localhost_control_simulator_mode, localhost_get_simulator_status, localhost_analyze_game_context
 🔧 Iniciando chat híbrido con 20 funciones disponibles

@@ -1,6 +1,6 @@
 import path from "path";
 import { fileURLToPath } from "url";
-import { getLocalModelHandler } from "../node_llama_cpp_handler.mjs";
+import { getNodeLlamaCppHandler } from "../node_llama_cpp_handler.mjs";
 import { GPUDiagnostics } from "../gpu_diagnostics.mjs";
 import {
   getLlama,

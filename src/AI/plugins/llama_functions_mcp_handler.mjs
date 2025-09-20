@@ -1,5 +1,5 @@
 import { LocalLlamaFunctionHandler, LOCAL_FUNCTION_CONFIGS } from './llama_functions_handler.mjs';
-import { getMCPFunctionHandler } from './mcp_function_handler.mjs';
+import { getMCPFunctionHandler } from './mcp/mcp_function_handler.mjs';
 
 /**
  * Handler híbrido que combina funciones locales con funciones MCP
@@ -578,7 +578,7 @@ export class HybridLlamaFunctionHandler extends LocalLlamaFunctionHandler {
 /**
  * Factory function para crear handler híbrido preconfigurado
  */
-export async function createHybridHandler(config = {}) {
+export async function getLLamaFunctionsMCPHandler(config = {}) {
   console.log('🏭 CreateHybridHandler: Iniciando creación con config:', Object.keys(config));
   
   const {

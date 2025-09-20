@@ -1,5 +1,5 @@
-import { LocalModelHandler, LOCAL_FUNCTION_CONFIGS } from '../node_llama_cpp_handler.mjs';
-import { getMCPFunctionHandler } from './mcp_function_handler.mjs';
+import { LocalModelHandler, LOCAL_FUNCTION_CONFIGS } from './node_llama_cpp_handler.mjs';
+import { getMCPFunctionHandler } from './mcp/mcp_function_handler.mjs';
 
 /**
  * Handler MCP que extiende LocalModelHandler para usar node-llama-cpp nativo
@@ -346,7 +346,7 @@ export async function createMCPModelHandler(config = {}) {
  */
 let mcpModelHandler = null;
 
-export async function getMCPModelHandler(config = {}) {
+export async function getNodeLlamaCppMCPHandler(config = {}) {
   if (!mcpModelHandler) {
     mcpModelHandler = await createMCPModelHandler(config);
   }

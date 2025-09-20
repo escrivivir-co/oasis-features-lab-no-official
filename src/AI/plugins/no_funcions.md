@@ -14,8 +14,8 @@ $ node ai_service.mjs
 🚀 AI Service starting on port 4001
 📍 Available modes:
   • Default: POST /ai {"input": "question"}
-  • Functions Prod: POST /ai {"input": "question", "useFunctionsProd": true}
-  • Functions Dev: POST /ai {"input": "question", "useFunctionsDev": true}
+  • Functions Prod: POST /ai {"input": "question", "node_llama_cpp_functions": true}
+  • Functions Dev: POST /ai {"input": "question", "llama_functions": true}
   • No Functions: POST /ai {"input": "question", "useFunctions": false}
 Call /ai { input: 'What is the price of an apple?', useFunctions: false }
 [node-llama-cpp] load: special_eos_id is not in special_eog_ids - the tokenizer config may be incorrect

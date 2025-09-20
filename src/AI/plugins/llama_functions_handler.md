@@ -5,7 +5,7 @@ secre@ALEPH MINGW64 /e/LAB_AGOSTO/ORACLE_HALT_ALEPH_VERSION/oasis/oasis/src/AI/p
 $ sh test_llama_functions.sh 
 🧪 Testing implementations...
 ==================================================
-=== Test 1: /ai useFunctionsDev : true ===
+=== Test 1: /ai llama_functions : true ===
 {"answer":"You: \"The price of an apple is $6.\"","snippets":[],"hadFunctionCalls":true,"mode":"dev"}
 
 ```
@@ -18,11 +18,11 @@ $ node ../ai_service.mjs
 🚀 AI Service starting on port 4001
 📍 Available modes:
   • Default: POST /ai {"input": "question"}
-  • Functions Prod: POST /ai {"input": "question", "useFunctionsProd": true}
-  • Functions Dev: POST /ai {"input": "question", "useFunctionsDev": true}
+  • Functions Prod: POST /ai {"input": "question", "node_llama_cpp_functions": true}
+  • Functions Dev: POST /ai {"input": "question", "llama_functions": true}
   • No Functions: POST /ai {"input": "question", "useFunctions": false}
-Call /ai { input: 'What is the price of an apple?', useFunctionsDev: true }
-Start /ai Plugins! { input: 'What is the price of an apple?', useFunctionsDev: true }
+Call /ai { input: 'What is the price of an apple?', llama_functions: true }
+Start /ai Plugins! { input: 'What is the price of an apple?', llama_functions: true }
 ROUTE FOR llama_functions_handler.mjs
 Local function registered: getFruitPrice
 Local function registered: getCurrentTime
@@ -33,7 +33,7 @@ Loading model from: E:\LAB_AGOSTO\ORACLE_HALT_ALEPH_VERSION\oasis\oasis\src\AI\o
 Creating context...
 Creating chat session...
 Local model initialized: E:\LAB_AGOSTO\ORACLE_HALT_ALEPH_VERSION\oasis\oasis\src\AI\oasis-42-1-chat.Q4_K_M.gguf       
-Start /ai Plugins! { input: 'What is the price of an apple?', useFunctionsDev: true }
+Start /ai Plugins! { input: 'What is the price of an apple?', llama_functions: true }
 
 Prompt for local model: User asks: "What is the price of an apple?"
 
