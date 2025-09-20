@@ -30,6 +30,7 @@
     "llama:test-handler": "cd plugins && node test_handler.sh",
     "llama:test-functions": "cd plugins/ && node test_llama_functions.sh",
     "llama:test-no-functions": "cd plugins && node test_no_functions.sh",
+    "llama:dryrun": "node plugins/system/llama_dryrun.mjs",
     
     "query-server": "node plugins/mcp_query_server.mjs",
     "test:mcp": "node plugins/test_mcp_integration.mjs",

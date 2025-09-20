@@ -43,6 +43,11 @@ ENV NODE_LLAMA_CPP_SKIP_DOWNLOAD=false \
 WORKDIR /app/src/server
 RUN npm install --no-bin-links --ignore-scripts
 
+# Instalar dependencias de AI con binarios Linux correctos
+WORKDIR /app/src/AI
+RUN npm install --no-bin-links --ignore-scripts && \
+    npm install @node-llama-cpp/linux-x64-cuda @node-llama-cpp/linux-x64 --save-optional
+
 # Exponer puertos
 EXPOSE 8008 3000 4001
 
