@@ -291,7 +291,7 @@ Debugger attached.
    GPU Layers: auto
    VRAM Padding: 256MB
 
-🤖 Servicio AI Standalone iniciado en puerto 3011
+🤖 Servicio AI Standalone iniciado en puerto 4001
 📋 Endpoints disponibles:
   POST /ai - Procesar consulta AI
   GET /health - Estado del servicio
@@ -299,7 +299,7 @@ Debugger attached.
   POST /preload - Precargar modelo
 🚀 Iniciando precarga del modelo...
 ✅ Modelo precargado exitosamente
-🚀 AI Service starting on port 3011
+🚀 AI Service starting on port 4001
 📍 Available modes:
   • Default: POST /ai {"input": "question"}
   • Functions Prod: POST /ai {"input": "question", "llama_MCP_functions": true}

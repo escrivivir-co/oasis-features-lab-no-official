@@ -277,6 +277,11 @@ export class NodeLLamaCppHandler {
     this.llamaInstance = await getLlama({ 
       gpu: this.gpu,
       vramPadding: this.vramPadding,
+      // � DEFINITIVO: Prohibir compilación completamente
+      build: "never",  // NUNCA compilar - solo usar binarios existentes
+      usePrebuiltBinaries: true,  // Usar binarios precompilados
+      skipDownload: false,  // Permitir descarga de binarios precompilados
+      progressLogs: false,  // Silenciar logs de compilación
       logger: {
         log: (level, message) => console.log(`[Llama ${level}]`, message),
       }

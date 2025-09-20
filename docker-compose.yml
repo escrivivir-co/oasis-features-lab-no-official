@@ -17,12 +17,30 @@ services:
       # Volumenes persistentes para datos críticos
       - oasis-ssb-data-dev:/home/oasis/.ssb
       - oasis-ai-models-dev:/app/src/AI/models
-      - oasis-logs-dev:/app/logs
-      
-      # Volumen de desarrollo opcional (descomenta para desarrollo)
-      # - ./src:/app/src:ro
+      - oasis-logs-dev:/app/logs   
+
     environment:
       - NODE_ENV=production
+      # � DEFINITIVO: Prohibir compilación completamente
+      - NODE_LLAMA_CPP_SKIP_DOWNLOAD=false
+      - NODE_LLAMA_CPP_USE_PREBUILT_BINARIES=true
+      - NODE_LLAMA_CPP_BUILD_FROM_SOURCE=false
+      - NODE_LLAMA_CPP_FORCE_BUILD=never
+      - NODE_LLAMA_CPP_SKIP_LLAMA_CPP_CLONE=true
+      # GPU Configuration 
+      - GPU_ENABLED=true
+      - GPU_LAYERS=35
+      - VRAM_PADDING=256
+    
+    # ✅ GPU habilitada con binarios precompilados (sin problemas de compilación)
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/"]

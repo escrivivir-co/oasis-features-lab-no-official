@@ -9,9 +9,13 @@ FROM node:20-bookworm-slim
 RUN apt-get update && apt-get install -y \
     curl \
     tar \
+    unzip \
+    git \
+    cmake \
+    build-essential \
     python3 \
     python3-pip \
-    build-essential \
+    nano \
     dos2unix \
     && rm -rf /var/lib/apt/lists/*
 
@@ -29,6 +33,11 @@ RUN dos2unix docker-entrypoint.sh && chmod +x docker-entrypoint.sh
 
 # Cambiar al usuario oasis ANTES de instalar dependencias
 USER oasis
+
+# 🎯 Variables de entorno para node-llama-cpp
+ENV NODE_LLAMA_CPP_SKIP_DOWNLOAD=false \
+    NODE_LLAMA_CPP_USE_PREBUILT_BINARIES=true \
+    NODE_LLAMA_CPP_BUILD_FROM_SOURCE=false
 
 # Instalar dependencias base del servidor como usuario oasis
 WORKDIR /app/src/server

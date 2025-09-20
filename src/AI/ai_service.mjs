@@ -5,7 +5,7 @@ import express from 'express';
 import cors from 'cors';
 import { getLlama, LlamaChatSession } from 'node-llama-cpp';
 
-const PORT = process.env.PORT || 3011;
+const PORT = process.env.PORT || 4001;
 
 // ✅ GPU Configuration from environment variables
 const GPU_ENABLED = process.env.GPU_ENABLED === 'true' || process.env.GPU_ENABLED === '1';

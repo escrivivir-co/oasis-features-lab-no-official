@@ -1,6 +1,5 @@
 import path from 'path';
 import fs from 'fs';
-import { fileURLToPath } from 'url';
 import express from 'express';
 import cors from 'cors';
 import { getLlama, LlamaChatSession } from 'node-llama-cpp';
@@ -69,9 +68,15 @@ async function initModel() {
   llamaInstance = await getLlama({
     gpu: GPU_ENABLED,
     vramPadding: VRAM_PADDING,
-    logger: GPU_ENABLED ? {
+    // � DEFINITIVO: PROHIBIR compilación completamente
+    build: "never",  // NUNCA compilar - solo usar binarios existentes
+    usePrebuiltBinaries: true,  // Usar binarios precompilados
+    skipDownload: false,  // Permitir descarga de binarios precompilados
+    progressLogs: false,  // Silenciar logs de compilación
+    // Logger para debug
+    logger: {
       log: (level, message) => console.log(`[Llama ${level}]`, message),
-    } : undefined
+    }
   });
 
   model = await llamaInstance.loadModel({

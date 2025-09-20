@@ -44,8 +44,10 @@ function fieldsForSnippet(type, c) {
 }
 
 async function publishExchange({ q, a, ctx = [], tokens = {} }) {
-  const ssbClient = await cooler.open();
-
+  // NOTE: Esta función requiere acceso al cliente SSB
+  // Por ahora retornamos un placeholder hasta que se configure correctamente
+  console.log('publishExchange: Función no implementada - requiere cliente SSB');
+  
   const content = {
     type: 'aiExchange',
     question: clip(String(q || ''), 2000),
@@ -54,9 +56,8 @@ async function publishExchange({ q, a, ctx = [], tokens = {} }) {
     timestamp: Date.now()
   };
 
-  return new Promise((resolve, reject) => {
-    ssbClient.publish(content, (err, res) => err ? reject(err) : resolve(res));
-  });
+  // Placeholder hasta que se configure correctamente con cooler
+  return Promise.resolve({ success: false, reason: 'SSB client not available' });
 }
 
 async function buildContext(maxItems = 100) {
@@ -66,5 +67,5 @@ async function buildContext(maxItems = 100) {
 
 }
 
-module.exports = { fieldsForSnippet, buildContext };
+module.exports = { fieldsForSnippet, buildContext, clip, publishExchange };
 

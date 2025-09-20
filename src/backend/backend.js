@@ -46,7 +46,7 @@ const axiosMod = require('../server/node_modules/axios');
 const axios = axiosMod.default || axiosMod;
 const { spawn } = require('child_process');
 
-const { fieldsForSnippet, buildContext, clip, publishExchange } = require('../AI/buildAIContext.js');
+const { fieldsForSnippet, buildContext, clip, publishExchange } = require('../AI/buildAIContext.cjs');
 
 let aiStarted = false;
 async function startAI() {

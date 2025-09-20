@@ -1,5 +1,5 @@
 #!/bin/bash
-PORT=${PORT:-3011}
+PORT=${PORT:-4001}
 
 echo "🧪 Testing MCP Native Handler Implementation..."
 echo "=================================================="

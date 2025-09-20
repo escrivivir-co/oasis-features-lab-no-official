@@ -140,10 +140,14 @@ export class LlamaFunctionHandler {
     console.log(`GPU layers: ${this.gpuLayers || 'auto'}`);
     console.log(`VRAM padding: ${this.vramPadding}MB`);
 
-    // Inicializar con opciones de verbose y mejores configuraciones
+    // � DEFINITIVO: Prohibir compilación completamente
     this.llamaInstance = await getLlama({
       gpu: this.gpu,
-      vramPadding: this.vramPadding, // MB de padding para VRAM
+      vramPadding: this.vramPadding,
+      build: "never",  // NUNCA compilar - solo usar binarios existentes
+      usePrebuiltBinaries: true,  // Usar binarios precompilados
+      skipDownload: false,  // Permitir descarga de binarios precompilados
+      progressLogs: false,  // Silenciar logs de compilación
       logger: {
         log: (level, message) =>
           console.log(`[node-llama-cpp ${level}]`, message),
