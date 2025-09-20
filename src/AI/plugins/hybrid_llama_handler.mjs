@@ -40,14 +40,61 @@ export class HybridLlamaFunctionHandler extends LocalLlamaFunctionHandler {
   async registerMCPServer(serverName, serverConfig, transportType = 'http') {
     try {
       const result = await this.mcpHandler.registerServer(serverName, serverConfig, transportType);
-      this.mcpServers.set(result.serverName, {
+      
+      // Intentar obtener información detallada del servidor usando get_server_info
+      let actualServerName = result.serverName;
+      let serverDetails = {};
+      
+      try {
+        // Buscar si existe la tool get_server_info
+        const allFunctions = this.mcpHandler.getAllFunctions();
+        const serverFunctions = allFunctions[result.serverName];
+        
+        if (serverFunctions && serverFunctions['get_server_info']) {
+          console.log(`🔍 Obteniendo información detallada del servidor ${result.serverName}...`);
+          
+          // Ejecutar get_server_info para obtener el nombre real
+          const serverInfoResult = await this.mcpHandler.executeFunction(
+            result.serverName, 
+            'get_server_info', 
+            {}
+          );
+          
+          if (serverInfoResult.success && serverInfoResult.result) {
+            try {
+              const serverInfo = JSON.parse(serverInfoResult.result);
+              if (serverInfo.name) {
+                actualServerName = serverInfo.name;
+                serverDetails = serverInfo;
+                console.log(`✅ Nombre real del servidor detectado: ${actualServerName}`);
+              }
+            } catch (parseError) {
+              console.warn(`⚠️ No se pudo parsear server info:`, parseError.message);
+            }
+          }
+        } else {
+          console.log(`ℹ️ Tool get_server_info no disponible en ${result.serverName}`);
+        }
+      } catch (infoError) {
+        console.warn(`⚠️ No se pudo obtener server info de ${result.serverName}:`, infoError.message);
+      }
+      
+      // Actualizar el registro con la información correcta
+      this.mcpServers.set(actualServerName, {
         config: serverConfig,
         transportType,
-        toolsCount: result.toolsCount
+        toolsCount: result.toolsCount,
+        originalName: result.serverName, // Mantener referencia al nombre original
+        serverDetails: serverDetails
       });
       
-      console.log(`✅ Servidor MCP ${result.serverName} registrado en handler híbrido`);
-      return result;
+      console.log(`✅ Servidor MCP ${actualServerName} registrado en handler híbrido`);
+      
+      return {
+        ...result,
+        actualServerName,
+        serverDetails
+      };
     } catch (error) {
       console.error(`❌ Error registrando servidor MCP ${serverName}:`, error);
       throw error;
@@ -68,10 +115,20 @@ export class HybridLlamaFunctionHandler extends LocalLlamaFunctionHandler {
     const allFunctions = { ...localFunctions };
     
     // Integrar funciones MCP con el formato correcto
-    for (const [serverName, serverFunctions] of Object.entries(mcpFunctions)) {
+    for (const [originalServerName, serverFunctions] of Object.entries(mcpFunctions)) {
+      // Buscar el nombre real del servidor en nuestro registro
+      let actualServerName = originalServerName;
+      
+      for (const [registeredName, serverInfo] of this.mcpServers.entries()) {
+        if (serverInfo.originalName === originalServerName) {
+          actualServerName = registeredName;
+          break;
+        }
+      }
+      
       for (const [toolName, functionDef] of Object.entries(serverFunctions)) {
-        // Crear función con prefijo del servidor
-        const fullFunctionName = `${serverName}_${toolName}`;
+        // Crear función con prefijo del servidor (usando nombre real)
+        const fullFunctionName = `${actualServerName}_${toolName}`;
         
         allFunctions[fullFunctionName] = {
           description: functionDef.description,
@@ -139,6 +196,15 @@ export class HybridLlamaFunctionHandler extends LocalLlamaFunctionHandler {
       return count + Object.keys(serverFunctions).length;
     }, 0);
 
+    // Obtener nombres reales de servidores
+    const realServerNames = Array.from(this.mcpServers.keys());
+    const serverDetails = Array.from(this.mcpServers.entries()).map(([name, info]) => ({
+      name,
+      originalName: info.originalName,
+      toolsCount: info.toolsCount,
+      hasServerInfo: !!info.serverDetails.name
+    }));
+
     return {
       local: {
         count: Object.keys(localFunctions).length,
@@ -146,8 +212,9 @@ export class HybridLlamaFunctionHandler extends LocalLlamaFunctionHandler {
       },
       mcp: {
         count: mcpCount,
-        servers: Object.keys(mcpFunctions),
-        serverDetails: this.mcpHandler.getServersStatus()
+        servers: realServerNames,
+        serverDetails: this.mcpHandler.getServersStatus(),
+        registeredServers: serverDetails
       },
       total: Object.keys(localFunctions).length + mcpCount
     };
