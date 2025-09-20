@@ -30,7 +30,7 @@ Debugger attached.
   • No Functions: POST /ai {"input": "question", "useFunctions": false}
 Call /ai { input: 'What is the current server status?', useFunctionsMcp: true }
 Start /ai Plugins! { input: 'What is the current server status?', useFunctionsMcp: true }
-ROUTE FOR llama_functions_local.mjs
+ROUTE FOR llama_functions_handler.mjs
 
 
 

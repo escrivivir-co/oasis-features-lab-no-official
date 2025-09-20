@@ -329,7 +329,7 @@ export class LocalModelHandler {
       }
     });
     console.log(
-      "ROUTE FOR local_model_handler.mjs",
+      "ROUTE FOR node_llama_cpp_handler.mjs",
       "initialize",
       "Functions",
       this.functions

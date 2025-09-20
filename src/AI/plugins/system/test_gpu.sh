@@ -19,7 +19,7 @@ import('./gpu_diagnostics.mjs').then(async (module) => {
 echo ""
 echo "3. Testing local model with GPU (basic test):"
 node -e "
-import('./local_model_handler.mjs').then(async (module) => {
+import('./node_llama_cpp_handler.mjs').then(async (module) => {
   const { getLocalModelHandler } = module;
   
   console.log('🚀 Testing with GPU enabled...');

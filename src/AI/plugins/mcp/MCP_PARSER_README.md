@@ -42,7 +42,7 @@ npm run query-server -- hybrid -o hybrid_config.json
 ### 2. Handler Híbrido en Código
 
 ```javascript
-import { createHybridHandler, HYBRID_PRESETS } from './plugins/hybrid_llama_handler.mjs';
+import { createHybridHandler, HYBRID_PRESETS } from './plugins/llama_functions_mcp_handler.mjs';
 
 // Handler con funciones locales + MCP
 const handler = await createHybridHandler({
@@ -70,7 +70,7 @@ console.log(`Locales: ${stats.local.count}, MCP: ${stats.mcp.count}`);
 ### 3. Presets Disponibles
 
 ```javascript
-import { HYBRID_PRESETS } from './plugins/hybrid_llama_handler.mjs';
+import { HYBRID_PRESETS } from './plugins/llama_functions_mcp_handler.mjs';
 
 // Solo funciones locales
 const localHandler = await createHybridHandler({
@@ -101,7 +101,7 @@ const devHandler = await createHybridHandler({
    - Ejecución de tools MCP desde node-llama-cpp
    - Gestión de múltiples servidores
 
-4. **HybridLlamaFunctionHandler** (`hybrid_llama_handler.mjs`)
+4. **HybridLlamaFunctionHandler** (`llama_functions_mcp_handler.mjs`)
    - Combinación de funciones locales + MCP
    - Extensión de `LocalLlamaFunctionHandler`
 
@@ -229,7 +229,7 @@ plugins/
 ├── mcp_tools_extractor.mjs      # Cliente MCP base
 ├── mcp_schema_transformer.mjs   # Transformador de schemas  
 ├── mcp_function_handler.mjs     # Handler genérico MCP
-├── hybrid_llama_handler.mjs     # Handler híbrido
+├── llama_functions_mcp_handler.mjs     # Handler híbrido
 ├── mcp_query_server.mjs         # CLI principal
 └── test_mcp_integration.mjs     # Suite de pruebas
 ```

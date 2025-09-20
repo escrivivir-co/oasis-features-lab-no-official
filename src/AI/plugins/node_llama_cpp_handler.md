@@ -24,7 +24,7 @@ $ node ../ai_service.mjs
   • No Functions: POST /ai {"input": "question", "useFunctions": false}
 Call /ai { input: 'What is the price of an apple?', useFunctionsProd: true }
 Start /ai Plugins! { input: 'What is the price of an apple?', useFunctionsProd: true }
-ROUTE FOR local_model_handler.mjs
+ROUTE FOR node_llama_cpp_handler.mjs
 Start /ai Plugins! { input: 'What is the price of an apple?', useFunctionsProd: true }
 Local function registered: getFruitPrice
  in special_eog_ids - the tokenizer config may be incorrect 

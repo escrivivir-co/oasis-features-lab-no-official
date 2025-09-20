@@ -136,8 +136,8 @@ src/AI/
 ├── models/
 │   └── oasis-42-1-chat.Q4_K_M.gguf
 └── plugins/
-    ├── local_model_handler.mjs     # Main model handler
-    ├── llama_functions_local.mjs   # Function calling handler
+    ├── node_llama_cpp_handler.mjs     # Main model handler
+    ├── llama_functions_handler.mjs   # Function calling handler
     ├── gpu_diagnostics.mjs         # GPU diagnostic tools
     ├── test_gpu_simple.mjs         # Simple GPU test
     ├── test_simple_functions.mjs   # Function test

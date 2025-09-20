@@ -21,10 +21,11 @@ console.log('');
 // Plugin imports - solo si están disponibles
 let functionsPlugin = null;
 try {
-  const { createLocalLlamaHandler } = await import('./plugins/llama_functions_local.mjs');
-  const { getLocalModelHandler } = await import('./plugins/local_model_handler.mjs');
-  const { createHybridHandler, HYBRID_PRESETS } = await import('./plugins/hybrid_llama_handler.mjs');
-  functionsPlugin = { createLocalLlamaHandler, getLocalModelHandler, createHybridHandler, HYBRID_PRESETS };
+  const { createLocalLlamaHandler } = await import('./plugins/llama_functions_handler.mjs');
+  const { getLocalModelHandler } = await import('./plugins/node_llama_cpp_handler.mjs');
+  const { createHybridHandler, HYBRID_PRESETS } = await import('./plugins/llama_functions_mcp_handler.mjs');
+  const { getMCPModelHandler } = await import('./plugins/mcp/node_llama_cpp_mcp_handler.mjs');
+  functionsPlugin = { createLocalLlamaHandler, getLocalModelHandler, createHybridHandler, getMCPModelHandler, HYBRID_PRESETS };
 } catch (error) {
   console.log('Functions plugin not available, running in basic mode');
 }
@@ -43,7 +44,8 @@ let lastError = null;
 // Plugin handlers - inicializados cuando se necesiten
 let functionHandlerProd = null;
 let functionHandlerDev = null;
-let functionHandlerMcp = null; // Single shared handler
+let functionHandlerMcp = null; // Manual implementation (hybrid)
+let functionHandlerMcpNative = null; // Native node-llama-cpp implementation
 
 async function initModel() {
   if (ready) {
@@ -103,7 +105,7 @@ async function getFunctionHandler(mode) {
   switch (mode) {
     case 'prod': {
       if (!functionHandlerProd) {
-        console.log("🔧 AI Service: Creando handler PROD (local_model_handler.mjs)");
+        console.log("🔧 AI Service: Creando handler PROD (node_llama_cpp_handler.mjs)");
         functionHandlerProd = await functionsPlugin.getLocalModelHandler({
           modelPath,
           functionSets: ['fruits', 'system'],
@@ -119,7 +121,7 @@ async function getFunctionHandler(mode) {
     }
     case 'dev': {
       if (!functionHandlerDev) {
-        console.log("🔧 AI Service: Creando handler DEV (llama_functions_local.mjs)");
+        console.log("🔧 AI Service: Creando handler DEV (llama_functions_handler.mjs)");
         functionHandlerDev = await functionsPlugin.createLocalLlamaHandler(modelPath, ['fruits', 'system'], {
           gpu: GPU_ENABLED,
           gpuLayers: GPU_LAYERS,
@@ -135,7 +137,7 @@ async function getFunctionHandler(mode) {
     }
     case 'mcp': {
       if (!functionHandlerMcp) {
-        console.log("🔧 AI Service: Creando handler MCP (hybrid_llama_handler.mjs)");
+        console.log("🔧 AI Service: Creando handler MCP (llama_functions_mcp_handler.mjs)");
         console.log("🔧 AI Service: Registrando servidor MCP localhost:3003...");
         
         // ⚠️ CRÍTICO: createHybridHandler YA inicializa el handler internamente
@@ -160,6 +162,31 @@ async function getFunctionHandler(mode) {
       }
       return functionHandlerMcp;
     }
+    case 'mcpNative': {
+      if (!functionHandlerMcpNative) {
+        console.log("🔧 AI Service: Creando handler MCP Native (node_llama_cpp_mcp_handler.mjs)");
+        console.log("🔧 AI Service: Usando node-llama-cpp nativo para funciones MCP...");
+        
+        functionHandlerMcpNative = await functionsPlugin.getMCPModelHandler({
+          modelPath,
+          functionSets: ['fruits', 'system'],
+          mcpServers: [
+            {
+              name: 'localhost',
+              url: 'http://localhost:3003',
+              transport: 'http'
+            }
+          ],
+          gpu: GPU_ENABLED,
+          gpuLayers: GPU_LAYERS,
+          vramPadding: VRAM_PADDING
+        });
+        console.log("✅ AI Service: Handler MCP Native creado e inicializado exitosamente");
+      } else {
+        console.log("♻️ AI Service: Reutilizando handler MCP Native existente");
+      }
+      return functionHandlerMcpNative;
+    }
     default : {
       console.log(`❌ AI Service: Modo '${mode}' no reconocido`);
     }
@@ -176,6 +203,7 @@ app.post('/ai', async (req, res) => {
     // Detectar modo de funciones desde request o config
     const functionMode = req.body.functionMode ||
       (req.body.useFunctionsMcp ? 'mcp' :
+        req.body.useFunctionsMcpNative ? 'mcpNative' :
         req.body.useFunctionsProd ? 'prod' :
         req.body.useFunctionsDev ? 'dev' :
           req.body.useFunctions === false ? 'none' :
@@ -304,6 +332,7 @@ console.log('  GET /health - Estado del servicio');
 console.log('  GET /status - Estado detallado');
 console.log('  POST /preload - Precargar modelo');
 
+/* NO ACTIVAR EN PRODUCCIÓN, MUCHOS USUARIOS NO LO USARAN EN TODA LA SESION
 // Precargar el modelo al inicio
 console.log('🚀 Iniciando precarga del modelo...');
 initModel().then(() => {
@@ -311,12 +340,14 @@ initModel().then(() => {
 }).catch((err) => {
   console.error('❌ Error precargando modelo:', err.message);
 });
+*/
 
 app.listen(PORT, () => {
   console.log(`🚀 AI Service starting on port ${PORT}`);
   console.log('📍 Available modes:');
   console.log('  • Default: POST /ai {"input": "question"}');
-  console.log('  • Functions Prod: POST /ai {"input": "question", "useFunctionsMcp": true}');
+  console.log('  • Functions MCP Manual: POST /ai {"input": "question", "useFunctionsMcp": true}');
+  console.log('  • Functions MCP Native: POST /ai {"input": "question", "useFunctionsMcpNative": true}');
   console.log('  • Functions Prod: POST /ai {"input": "question", "useFunctionsProd": true}');
   console.log('  • Functions Dev: POST /ai {"input": "question", "useFunctionsDev": true}');
   console.log('  • No Functions: POST /ai {"input": "question", "useFunctions": false}');

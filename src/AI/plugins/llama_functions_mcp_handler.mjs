@@ -1,4 +1,4 @@
-import { LocalLlamaFunctionHandler, LOCAL_FUNCTION_CONFIGS } from './llama_functions_local.mjs';
+import { LocalLlamaFunctionHandler, LOCAL_FUNCTION_CONFIGS } from './llama_functions_handler.mjs';
 import { getMCPFunctionHandler } from './mcp_function_handler.mjs';
 
 /**

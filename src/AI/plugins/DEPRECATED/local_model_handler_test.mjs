@@ -1,7 +1,7 @@
 import path from "path";
 import { fileURLToPath } from "url";
-import { getLocalModelHandler } from "./local_model_handler.mjs";
-import { GPUDiagnostics } from "./gpu_diagnostics.mjs";
+import { getLocalModelHandler } from "../node_llama_cpp_handler.mjs";
+import { GPUDiagnostics } from "../system/gpu_diagnostics.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

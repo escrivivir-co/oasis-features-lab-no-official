@@ -23,7 +23,7 @@ $ node ../ai_service.mjs
   • No Functions: POST /ai {"input": "question", "useFunctions": false}
 Call /ai { input: 'What is the price of an apple?', useFunctionsDev: true }
 Start /ai Plugins! { input: 'What is the price of an apple?', useFunctionsDev: true }
-ROUTE FOR llama_functions_local.mjs
+ROUTE FOR llama_functions_handler.mjs
 Local function registered: getFruitPrice
 Local function registered: getCurrentTime
 Local function registered: getWeather

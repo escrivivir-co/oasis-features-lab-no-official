@@ -16,8 +16,8 @@
     "start:gpu-max": "start_gpu_max.bat",
     "start:auto": "start_auto_gpu.bat",
 
-    "gpu:local": "cd plugins && node local_model_handler_test.mjs",
-    "gpu:llama": "cd plugins && node llama_functions_local_test.mjs",
+    "gpu:local": "cd plugins && node node_llama_cpp_handler_test.mjs",
+    "gpu:llama": "cd plugins && node llama_functions_handler_test.mjs",
     
     "gpu:check": "cd plugins && node -e \"import('./gpu_diagnostics.mjs').then(async (module) => { const { quickGPUCheck } = module; await quickGPUCheck(); }).catch(console.error);\"",
     "gpu:test-simple": "cd plugins && node test_gpu_simple.mjs",
