@@ -1,5 +1,5 @@
 import { LlamaFunctionHandler, LLAMA_FUNCTION_CONFIGS } from './llama_functions_handler.mjs';
-import { getMCPFunctionHandler } from './mcp/mcp_function_handler.mjs';
+import { MCPMixin } from '../mcp/MCPMixin.mjs';
 
 /**
  * Handler híbrido que combina funciones locales con funciones MCP
@@ -7,11 +7,11 @@ import { getMCPFunctionHandler } from './mcp/mcp_function_handler.mjs';
 export class LlamaFunctionMCPHandler extends LlamaFunctionHandler {
   constructor(config = {}) {
     super(config);
-    this.mcpHandler = getMCPFunctionHandler();
-    this.mcpServers = new Map(); // serverName -> config
-    this.serverNameMap = new Map(); // configName -> realServerName
+    
+    // Aplicar MCPMixin
+    Object.assign(this, new MCPMixin());
+    
     this.functionsCache = null; // Cache para evitar recalcular funciones
-    this.functionToServerMap = new Map(); // functionName -> serverInfo para routing
   }
 
   /**
@@ -48,103 +48,15 @@ export class LlamaFunctionMCPHandler extends LlamaFunctionHandler {
   }
 
   /**
-   * Registrar un servidor MCP adicional
+   * Invalidar cache cuando se registran nuevos servidores
    */
   async registerMCPServer(serverName, serverConfig, transportType = 'http') {
-    try {
-      const result = await this.mcpHandler.registerServer(serverName, serverConfig, transportType);
-      
-      // Intentar obtener información detallada del servidor usando get_server_info
-      let actualServerName = result.serverName;
-      let serverDetails = {};
-      
-      try {
-        // Buscar si existe la tool get_server_info
-        const allFunctions = this.mcpHandler.getAllFunctions();
-        const serverFunctions = allFunctions[result.serverName];
-        
-        if (serverFunctions && serverFunctions['get_server_info']) {
-          console.log(`🔍 Obteniendo información detallada del servidor ${result.serverName}...`);
-          
-          // Ejecutar get_server_info para obtener el nombre real
-          const serverInfoResult = await this.mcpHandler.executeFunction(
-            result.serverName, 
-            'get_server_info', 
-            {}
-          );
-          
-          if (serverInfoResult.success && serverInfoResult.result) {
-            try {
-              const serverInfo = JSON.parse(serverInfoResult.result);
-              if (serverInfo.name) {
-                actualServerName = serverInfo.name;
-                serverDetails = serverInfo;
-                console.log(`✅ Nombre real del servidor detectado: ${actualServerName}`);
-              }
-            } catch (parseError) {
-              console.warn(`⚠️ No se pudo parsear server info:`, parseError.message);
-            }
-          }
-        } else {
-          console.log(`ℹ️ Tool get_server_info no disponible en ${result.serverName}`);
-        }
-      } catch (infoError) {
-        console.warn(`⚠️ No se pudo obtener server info de ${result.serverName}:`, infoError.message);
-      }
-      
-      // Actualizar el registro con la información correcta
-      this.mcpServers.set(actualServerName, {
-        config: serverConfig,
-        transportType,
-        toolsCount: result.toolsCount,
-        originalName: result.serverName, // Mantener referencia al nombre original
-        serverDetails: serverDetails
-      });
-      
-      // Invalidar cache de funciones para que se recalcule en la próxima inicialización
-      this.functionsCache = null;
-      
-      console.log(`✅ Servidor MCP ${actualServerName} registrado en handler híbrido`);
-      
-      return {
-        ...result,
-        actualServerName,
-        serverDetails
-      };
-    } catch (error) {
-      console.error(`❌ Error registrando servidor MCP ${serverName}:`, error);
-      throw error;
-    }
-  }
-
-  /**
-   * Generar prefijo corto para nombre de servidor
-   */
-  _generateShortPrefix(serverName) {
-    // Casos específicos conocidos
-    const knownMappings = {
-      'devops-mcp-server': 'dms',
-      'wiki-mcp-browser': 'wiki',
-      'state-machine-server': 'state',
-      'localhost': 'local'
-    };
+    const result = await super.registerMCPServer(serverName, serverConfig, transportType);
     
-    if (knownMappings[serverName]) {
-      return knownMappings[serverName];
-    }
+    // Invalidar cache de funciones para que se recalcule en la próxima inicialización
+    this.functionsCache = null;
     
-    // Generar automáticamente para nombres desconocidos
-    if (serverName.includes('-')) {
-      // Tomar iniciales de palabras separadas por guiones
-      return serverName.split('-')
-        .map(word => word.charAt(0))
-        .join('')
-        .toLowerCase()
-        .substring(0, 4); // Máximo 4 caracteres
-    }
-    
-    // Para nombres simples, tomar los primeros 3-4 caracteres
-    return serverName.toLowerCase().substring(0, 4);
+    return result;
   }
 
   /**
@@ -154,49 +66,11 @@ export class LlamaFunctionMCPHandler extends LlamaFunctionHandler {
     // Empezar con funciones locales
     const localFunctions = super.getFunctionsForNodeLlama();
     
-    // Añadir funciones MCP
-    const mcpFunctions = this.mcpHandler.getAllFunctions();
+    // Añadir funciones MCP usando el mixin
+    const mcpFunctionMap = this._buildMCPFunctionMapping();
     
     // Combinar ambos tipos
-    const allFunctions = { ...localFunctions };
-    
-    // Limpiar mapeo de funciones a servidores
-    this.functionToServerMap.clear();
-    
-    // Integrar funciones MCP con prefijos cortos
-    for (const [originalServerName, serverFunctions] of Object.entries(mcpFunctions)) {
-      // Buscar el nombre real del servidor en nuestro registro
-      let actualServerName = originalServerName;
-      
-      for (const [registeredName, serverInfo] of this.mcpServers.entries()) {
-        if (serverInfo.originalName === originalServerName) {
-          actualServerName = registeredName;
-          break;
-        }
-      }
-      
-      // Generar prefijo corto para el servidor
-      const shortPrefix = this._generateShortPrefix(actualServerName);
-      
-      for (const [toolName, functionDef] of Object.entries(serverFunctions)) {
-        // Crear función con prefijo corto
-        const shortFunctionName = `${shortPrefix}_${toolName}`;
-        
-        allFunctions[shortFunctionName] = {
-          description: functionDef.description,
-          parameters: functionDef.parameters,
-          handler: functionDef.handler
-        };
-        
-        // Mapear función a información del servidor para routing
-        this.functionToServerMap.set(shortFunctionName, {
-          serverName: actualServerName,
-          originalServerName: originalServerName,
-          toolName: toolName,
-          shortPrefix: shortPrefix
-        });
-      }
-    }
+    const allFunctions = { ...localFunctions, ...mcpFunctionMap };
     
     console.log(`🔧 Combined functions available: ${Object.keys(allFunctions).length}`);
     console.log(`📋 Function names: ${Object.keys(allFunctions).join(', ')}`);
@@ -235,28 +109,13 @@ export class LlamaFunctionMCPHandler extends LlamaFunctionHandler {
       });
     }
 
-    // Registrar servidores MCP
-    const mcpRegistrations = mcpServers.map(async (serverConfig) => {
-      const { name, url, transport = 'http' } = serverConfig;
-      return await this.registerMCPServer(name, url, transport);
-    });
-
-    const mcpResults = await Promise.allSettled(mcpRegistrations);
-    
-    // Reportar resultados
-    mcpResults.forEach((result, index) => {
-      const serverConfig = mcpServers[index];
-      if (result.status === 'fulfilled') {
-        console.log(`✅ Servidor MCP ${serverConfig.name} registrado exitosamente`);
-      } else {
-        console.error(`❌ Error registrando servidor MCP ${serverConfig.name}:`, result.reason);
-      }
-    });
+    // Registrar servidores MCP usando el mixin
+    const mcpResult = await this.registerMCPServers(mcpServers);
 
     return {
       local: localFunctionSets.length,
-      mcp: mcpResults.filter(r => r.status === 'fulfilled').length,
-      mcpErrors: mcpResults.filter(r => r.status === 'rejected').length
+      mcp: mcpResult.registered,
+      mcpErrors: mcpResult.errors
     };
   }
 
@@ -265,33 +124,15 @@ export class LlamaFunctionMCPHandler extends LlamaFunctionHandler {
    */
   getFunctionStats() {
     const localFunctions = super.getRegisteredFunctions();
-    const mcpFunctions = this.mcpHandler.getAllFunctions();
-    
-    const mcpCount = Object.values(mcpFunctions).reduce((count, serverFunctions) => {
-      return count + Object.keys(serverFunctions).length;
-    }, 0);
-
-    // Obtener nombres reales de servidores
-    const realServerNames = Array.from(this.mcpServers.keys());
-    const serverDetails = Array.from(this.mcpServers.entries()).map(([name, info]) => ({
-      name,
-      originalName: info.originalName,
-      toolsCount: info.toolsCount,
-      hasServerInfo: !!info.serverDetails.name
-    }));
+    const mcpStats = this.getMCPStats();
 
     return {
       local: {
         count: Object.keys(localFunctions).length,
         functions: Object.keys(localFunctions)
       },
-      mcp: {
-        count: mcpCount,
-        servers: realServerNames,
-        serverDetails: this.mcpHandler.getServersStatus(),
-        registeredServers: serverDetails
-      },
-      total: Object.keys(localFunctions).length + mcpCount
+      mcp: mcpStats,
+      total: Object.keys(localFunctions).length + mcpStats.count
     };
   }
 
@@ -469,7 +310,7 @@ export class LlamaFunctionMCPHandler extends LlamaFunctionHandler {
       );
 
       // Verificar que es una función válida registrada
-      if (!this.functionToServerMap.has(functionName) && !this.functions.has(functionName)) {
+      if (!this.isMCPFunction(functionName) && !this.functions.has(functionName)) {
         console.log(`⚠️ Función ${functionName} no encontrada, omitiendo...`);
         continue;
       }
@@ -478,26 +319,12 @@ export class LlamaFunctionMCPHandler extends LlamaFunctionHandler {
         const params = paramsStr ? JSON.parse(paramsStr || '{}') : {};
         let result;
         
-        // Verificar si es una función MCP usando nuestro mapeo
-        if (this.functionToServerMap.has(functionName)) {
-          // Es una función MCP - routear al servidor correcto
-          const serverInfo = this.functionToServerMap.get(functionName);
-          console.log(`🔄 Routing MCP function ${functionName} to server ${serverInfo.originalServerName} (real name: ${serverInfo.serverName})`);
-          
-          // IMPORTANTE: Usar originalServerName para el routing interno del MCP handler
-          // porque es el nombre con el que se registró originalmente en las estructuras internas
-          const mcpResult = await this.mcpHandler.executeFunction(
-            serverInfo.originalServerName,  // Nombre original usado internamente por MCP handler
-            serverInfo.toolName,
-            params
-          );
-          
-          if (mcpResult.success) {
-            result = mcpResult.result;
-            console.log(`✅ MCP function ${functionName} executed successfully on ${serverInfo.serverName}`);
-          } else {
-            throw new Error(`MCP function failed: ${mcpResult.error}`);
-          }
+        // Verificar si es una función MCP usando el mixin
+        if (this.isMCPFunction(functionName)) {
+          // Es una función MCP - usar el método del mixin
+          console.log(`🔄 Routing MCP function ${functionName}`);
+          result = await this.executeMCPFunction(functionName, params);
+          console.log(`✅ MCP function ${functionName} executed successfully`);
           
         } else if (this.functions.has(functionName)) {
           // Es una función local - usar el handler normal
@@ -540,7 +367,7 @@ export class LlamaFunctionMCPHandler extends LlamaFunctionHandler {
   async exportConfiguration() {
     const localConfig = {
       local: this.getRegisteredFunctions(),
-      mcp: this.mcpHandler.exportConfiguration()
+      mcp: this.exportMCPConfiguration()
     };
 
     return {
@@ -556,7 +383,7 @@ export class LlamaFunctionMCPHandler extends LlamaFunctionHandler {
    */
   async cleanup() {
     try {
-      await this.mcpHandler.disconnectAll();
+      await this.cleanupMCP();
       console.log('🧹 Limpieza de conexiones MCP completada');
     } catch (error) {
       console.error('❌ Error en limpieza:', error);
@@ -598,23 +425,8 @@ export async function getLLamaFunctionsMCPHandler(config = {}) {
   if (mcpServers.length > 0) {
     console.log(`🏭 CreateHybridHandler: Registrando ${mcpServers.length} servidores MCP...`);
     
-    const mcpRegistrations = mcpServers.map(async (serverConfig) => {
-      const { name, url, transport = 'http' } = serverConfig;
-      console.log(`🏭 CreateHybridHandler: Registrando servidor ${name} en ${url}...`);
-      return await handler.registerMCPServer(name, url, transport);
-    });
-
-    const mcpResults = await Promise.allSettled(mcpRegistrations);
-    
-    // Reportar resultados
-    mcpResults.forEach((result, index) => {
-      const serverConfig = mcpServers[index];
-      if (result.status === 'fulfilled') {
-        console.log(`✅ CreateHybridHandler: Servidor MCP ${serverConfig.name} registrado exitosamente`);
-      } else {
-        console.error(`❌ CreateHybridHandler: Error registrando servidor MCP ${serverConfig.name}:`, result.reason);
-      }
-    });
+    const mcpResult = await handler.registerMCPServers(mcpServers);
+    console.log(`✅ CreateHybridHandler: ${mcpResult.registered} servidores registrados, ${mcpResult.errors} errores`);
   }
   
   // AHORA inicializar con todas las funciones disponibles
