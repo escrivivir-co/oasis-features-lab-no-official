@@ -428,23 +428,73 @@ export class LocalLlamaFunctionHandler {
    */
   async generateNaturalResponse(originalQuery, functionResults) {
     try {
-      // Extraer el resultado de la función
-      const resultMatch = functionResults.match(/\[\[result: (.*?)\]\]/);
+      console.log("🔄 Starting natural response generation...");
+      console.log("📝 Original query:", originalQuery);
+      console.log("📊 Function results:", functionResults.replace(/\s+/g, ' ').substring(0, 200) + "...");
+      console.log("� Function results length:", functionResults.length);
+      
+      // Regex más robusto para capturar resultados multi-línea
+      const resultMatch = functionResults.match(/\[\[result:\s*(\{[\s\S]*?\})\s*\]\]/);
       if (!resultMatch) {
-        return "Function executed successfully, but no result data available.";
+        console.log("❌ No result pattern found in function results");
+        console.log("🔍 Trying simpler regex...");
+        
+        // Intentar regex más simple
+        const simpleMatch = functionResults.match(/\[\[result:\s*(.*?)\s*\]\]/s);
+        if (!simpleMatch) {
+          console.log("❌ Simple regex also failed");
+          return "Function executed successfully, but no result data available.";
+        }
+        console.log("✅ Simple regex found match:", simpleMatch[1].substring(0, 100) + "...");
+        
+        let functionData;
+        try {
+          functionData = JSON.parse(simpleMatch[1]);
+          console.log("✅ Successfully parsed with simple regex");
+        } catch (parseError) {
+          console.log("⚠️ Simple regex data not JSON, using raw data");
+          functionData = simpleMatch[1];
+        }
+        
+        // Crear prompt para respuesta natural
+        const responsePrompt = this.createResponsePrompt(originalQuery, functionData);
+        
+        console.log("\n🔄 Generating natural response with prompt:");
+        console.log("=" + "=".repeat(50));
+        console.log(responsePrompt);
+        console.log("=" + "=".repeat(50));
+
+        // Generar respuesta sin funciones (solo texto)
+        const naturalResponse = await this.session.prompt(responsePrompt, {
+          maxTokens: 200,
+          temperature: 0.7,
+          topP: 0.9,
+        });
+
+        console.log("🎯 Generated natural response:", naturalResponse);
+        return String(naturalResponse || "").trim();
       }
+
+      console.log("📋 Raw result match:", resultMatch[1].replace(/\s+/g, ' ').substring(0, 100) + "...");
 
       let functionData;
       try {
         functionData = JSON.parse(resultMatch[1]);
+        console.log("✅ Successfully parsed function data:", typeof functionData);
+        console.log("📄 Parsed data keys:", Object.keys(functionData || {}));
       } catch (parseError) {
+        console.log("⚠️ Failed to parse as JSON, using raw data");
+        console.log("❌ Parse error:", parseError.message);
         functionData = resultMatch[1]; // Usar raw si no es JSON válido
       }
 
       // Crear prompt para respuesta natural
       const responsePrompt = this.createResponsePrompt(originalQuery, functionData);
       
-      console.log("\n🔄 Generating natural response with prompt:", responsePrompt);
+      console.log("🔄 Generating natural response with prompt (truncated for readability)");
+      // console.log("=" + "=".repeat(50));
+      // console.log(responsePrompt);
+      // console.log("=" + "=".repeat(50));
 
       // Generar respuesta sin funciones (solo texto)
       const naturalResponse = await this.session.prompt(responsePrompt, {
@@ -453,13 +503,19 @@ export class LocalLlamaFunctionHandler {
         topP: 0.9,
       });
 
+      console.log("🎯 Generated natural response:", String(naturalResponse || "").trim().substring(0, 150) + "...");
+      console.log("📏 Response length:", String(naturalResponse || "").length);
+
       return String(naturalResponse || "").trim();
 
     } catch (error) {
       console.error("❌ Error generating natural response:", error);
+      console.error("🔍 Error stack:", error.stack);
       
       // Fallback: crear respuesta simple basada en el tipo de datos
-      return this.createFallbackResponse(originalQuery, functionResults);
+      const fallbackResponse = this.createFallbackResponse(originalQuery, functionResults);
+      console.log("🔄 Using fallback response:", fallbackResponse);
+      return fallbackResponse;
     }
   }
 
@@ -467,11 +523,17 @@ export class LocalLlamaFunctionHandler {
    * Crear prompt para respuesta natural basado en el tipo de consulta y datos
    */
   createResponsePrompt(originalQuery, functionData) {
+    console.log("\n🔧 Creating response prompt...");
+    console.log("📝 Query:", originalQuery);
+    console.log("📊 Function data type:", typeof functionData);
+    console.log("📄 Function data:", functionData);
+    
     // Analizar la estructura de los datos para generar un prompt inteligente
     const dataAnalysis = this.analyzeFunctionData(functionData);
+    console.log("🔍 Data analysis result:", dataAnalysis);
     
     // Crear prompt adaptativo basado en el análisis
-    return `You are an AI assistant helping a user understand information. The user asked: "${originalQuery}"
+    const prompt = `You are an AI assistant helping a user understand information. The user asked: "${originalQuery}"
 
 You received this data from a function call:
 ${JSON.stringify(functionData, null, 2)}
@@ -490,16 +552,26 @@ Instructions:
 6. If there are numbers, dates, or technical details, explain them in context
 
 Respond naturally as if you're explaining this information to a colleague:`;
+
+    console.log("✅ Generated prompt successfully");
+    return prompt;
   }
 
   /**
    * Analizar la estructura y contenido de los datos de función
    */
   analyzeFunctionData(data) {
+    console.log("\n🔍 Analyzing function data...");
+    console.log("📊 Raw data:", data);
+    console.log("📈 Data type:", typeof data);
+    
     if (typeof data === 'string') {
+      console.log("🔄 Attempting to parse string as JSON...");
       try {
         data = JSON.parse(data);
+        console.log("✅ Successfully parsed string to object");
       } catch (e) {
+        console.log("⚠️ Failed to parse string as JSON:", e.message);
         return {
           type: 'text',
           keyInfo: ['raw text data'],
@@ -509,6 +581,7 @@ Respond naturally as if you're explaining this information to a colleague:`;
     }
 
     if (typeof data !== 'object' || data === null) {
+      console.log("📋 Data is primitive type:", typeof data);
       return {
         type: 'primitive',
         keyInfo: [typeof data],
@@ -517,6 +590,7 @@ Respond naturally as if you're explaining this information to a colleague:`;
     }
 
     const keys = Object.keys(data);
+    console.log("🔑 Object keys:", keys);
     const keyInfo = [];
     let dataType = 'object';
     let structure = 'structured data';
@@ -569,40 +643,59 @@ Respond naturally as if you're explaining this information to a colleague:`;
 
     // Remover duplicados
     const uniqueKeyInfo = [...new Set(keyInfo)];
-
-    return {
+    
+    const analysis = {
       type: dataType,
       keyInfo: uniqueKeyInfo.length > 0 ? uniqueKeyInfo : ['general data'],
       structure: structure
     };
+    
+    console.log("📊 Analysis complete:", analysis);
+    return analysis;
   }
 
   /**
    * Crear respuesta de respaldo si falla la generación natural
    */
   createFallbackResponse(originalQuery, functionResults) {
+    console.log("\n🔄 Creating fallback response...");
+    console.log("📝 Query:", originalQuery);
+    console.log("📊 Function results:", functionResults);
+    
     const resultMatch = functionResults.match(/\[\[result: (.*?)\]\]/);
     if (!resultMatch) {
+      console.log("❌ No result pattern in fallback");
       return "I executed the requested function successfully.";
     }
 
+    console.log("📋 Fallback result match:", resultMatch[1]);
+
     try {
       const data = JSON.parse(resultMatch[1]);
+      console.log("✅ Parsed fallback data:", data);
       
       // Análisis inteligente de los datos para crear respuesta de respaldo
       const analysis = this.analyzeFunctionData(data);
+      console.log("🔍 Fallback analysis:", analysis);
+      
+      let fallbackResponse;
       
       if (analysis.type === 'status' && data.server) {
-        return `The ${data.server} server is currently ${data.status || 'operational'}. ${data.uptime?.formatted ? `It has been running for ${data.uptime.formatted}` : ''} ${data.memory?.used ? `and is using ${data.memory.used} of memory.` : ''}`;
+        fallbackResponse = `The ${data.server} server is currently ${data.status || 'operational'}. ${data.uptime?.formatted ? `It has been running for ${data.uptime.formatted}` : ''} ${data.memory?.used ? `and is using ${data.memory.used} of memory.` : ''}`;
       } else if (analysis.type === 'list' && Array.isArray(data)) {
-        return `I found ${data.length} items. Here's the information: ${JSON.stringify(data, null, 2)}`;
+        fallbackResponse = `I found ${data.length} items. Here's the information: ${JSON.stringify(data, null, 2)}`;
       } else if (typeof data === 'string') {
-        return data;
+        fallbackResponse = data;
       } else {
         // Respuesta genérica basada en el análisis
-        return `Here's the information you requested (${analysis.structure}): ${JSON.stringify(data, null, 2)}`;
+        fallbackResponse = `Here's the information you requested (${analysis.structure}): ${JSON.stringify(data, null, 2)}`;
       }
+      
+      console.log("🎯 Generated fallback response:", fallbackResponse);
+      return fallbackResponse;
+      
     } catch (e) {
+      console.log("⚠️ Failed to parse fallback data, using raw:", e.message);
       return resultMatch[1]; // Retornar datos raw
     }
   }

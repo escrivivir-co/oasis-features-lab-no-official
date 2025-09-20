@@ -97,12 +97,13 @@ async function initModel() {
 async function getFunctionHandler(mode) {
   if (!functionsPlugin) return null;
 
-  console.log("ROUTE FOR llama_functions_local.mjs")
+  console.log(`🔧 AI Service: Solicitando handler para modo: ${mode}`);
   const modelPath = path.join(__dirname, 'models', 'oasis-42-1-chat.Q4_K_M.gguf');
+  
   switch (mode) {
     case 'prod': {
       if (!functionHandlerProd) {
-        console.log("ROUTE FOR local_model_handler.mjs")
+        console.log("🔧 AI Service: Creando handler PROD (local_model_handler.mjs)");
         functionHandlerProd = await functionsPlugin.getLocalModelHandler({
           modelPath,
           functionSets: ['fruits', 'system'],
@@ -110,22 +111,35 @@ async function getFunctionHandler(mode) {
           gpuLayers: GPU_LAYERS,
           vramPadding: VRAM_PADDING
         });
+        console.log("✅ AI Service: Handler PROD creado exitosamente");
+      } else {
+        console.log("♻️ AI Service: Reutilizando handler PROD existente");
       }
       return functionHandlerProd;
     }
     case 'dev': {
       if (!functionHandlerDev) {
+        console.log("🔧 AI Service: Creando handler DEV (llama_functions_local.mjs)");
         functionHandlerDev = await functionsPlugin.createLocalLlamaHandler(modelPath, ['fruits', 'system'], {
           gpu: GPU_ENABLED,
           gpuLayers: GPU_LAYERS,
           vramPadding: VRAM_PADDING
         });
+        console.log("🔧 AI Service: Inicializando handler DEV...");
         await functionHandlerDev.initialize();
+        console.log("✅ AI Service: Handler DEV creado e inicializado exitosamente");
+      } else {
+        console.log("♻️ AI Service: Reutilizando handler DEV existente");
       }
       return functionHandlerDev;
     }
     case 'mcp': {
       if (!functionHandlerMcp) {
+        console.log("🔧 AI Service: Creando handler MCP (hybrid_llama_handler.mjs)");
+        console.log("🔧 AI Service: Registrando servidor MCP localhost:3003...");
+        
+        // ⚠️ CRÍTICO: createHybridHandler YA inicializa el handler internamente
+        // NO llamar initialize() después o se duplicará la inicialización
         functionHandlerMcp = await functionsPlugin.createHybridHandler({
           modelPath,
           localFunctions: ['fruits', 'system'],
@@ -140,12 +154,14 @@ async function getFunctionHandler(mode) {
           gpuLayers: GPU_LAYERS,
           vramPadding: VRAM_PADDING
         });
-        await functionHandlerMcp.initialize();
+        console.log("✅ AI Service: Handler MCP creado e inicializado exitosamente");
+      } else {
+        console.log("♻️ AI Service: Reutilizando handler MCP existente");
       }
       return functionHandlerMcp;
     }
     default : {
-      console.log("No handler found!!!!!")
+      console.log(`❌ AI Service: Modo '${mode}' no reconocido`);
     }
   }
 
@@ -167,18 +183,19 @@ app.post('/ai', async (req, res) => {
 
     // Si hay modo de funciones disponible, usar el plugin
     if (functionMode !== 'none' && functionsPlugin) {
-      console.log("Start /ai Plugins!", req.body)
+      console.log(`🚀 AI Service: Iniciando modo '${functionMode}' para request:`, req.body);
       const handler = await getFunctionHandler(functionMode);
       if (handler) {
         let userContext = '';
         try {
           userContext = req.body.context || '';
         } catch (err) {
-          console.log("Error at route /ai", err.message)
+          console.log("⚠️ AI Service: Error extrayendo contexto:", err.message)
         }
 
-        console.log("Start /ai Plugins!", req.body)
+        console.log(`📨 AI Service: Procesando input con handler ${functionMode}: "${userInput}"`);
         const result = await handler.chat(userInput, userContext);
+        console.log(`✅ AI Service: Respuesta generada con handler ${functionMode}`);
 
         return res.json({
           answer: result.answer || result,
@@ -186,6 +203,8 @@ app.post('/ai', async (req, res) => {
           hadFunctionCalls: result.hadFunctionCalls || false,
           mode: functionMode
         });
+      } else {
+        console.log(`❌ AI Service: No se pudo obtener handler para modo '${functionMode}'`);
       }
     }
 
