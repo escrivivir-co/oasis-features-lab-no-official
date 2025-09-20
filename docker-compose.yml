@@ -21,7 +21,7 @@ services:
 
     environment:
       - NODE_ENV=production
-      # � DEFINITIVO: Prohibir compilación completamente
+      # 🔧 DEFINITIVO: Prohibir compilación completamente
       - NODE_LLAMA_CPP_SKIP_DOWNLOAD=false
       - NODE_LLAMA_CPP_USE_PREBUILT_BINARIES=true
       - NODE_LLAMA_CPP_BUILD_FROM_SOURCE=false
@@ -31,8 +31,12 @@ services:
       - GPU_ENABLED=true
       - GPU_LAYERS=35
       - VRAM_PADDING=256
+      # NVIDIA GPU Configuration
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
     
-    # ✅ GPU habilitada con binarios precompilados (sin problemas de compilación)
+    # ✅ GPU habilitada con runtime nvidia y configuración dual
+    runtime: nvidia
     deploy:
       resources:
         reservations:
