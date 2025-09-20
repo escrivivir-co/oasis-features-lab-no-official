@@ -249,7 +249,7 @@ export class LocalLlamaFunctionHandler {
       "",
       "Available functions:",
       ...this.getRegisteredFunctions().map(
-        (f) => `${f.name}: ${f.description}`
+        (f) => `- ${f.name}: ${f.description} \n`
       ),
       "",
       'EXACT format required: [[call: functionName({"param": "value"})]]',
@@ -285,7 +285,7 @@ export class LocalLlamaFunctionHandler {
 
       // Con funciones - usar timeout más corto
       console.log("🔄 Starting model inference with functions...");
-      const timer = 30 * 1000; // 30 segundos
+      const timer = 5 * 60 * 1000; // 30 segundos
       const answer = await Promise.race([
         this.session.prompt(prompt, {
           maxTokens: 150, // Limitar tokens para evitar respuestas muy largas
@@ -293,6 +293,7 @@ export class LocalLlamaFunctionHandler {
           topP: 0.9,
           onToken: (token) => {
             // Log progreso de tokens (opcional)
+            console.log("IA streams token", token)
             process.stdout.write(".");
           },
         }),
@@ -316,29 +317,8 @@ export class LocalLlamaFunctionHandler {
       if (hadFunctionCalls) {
         console.log("\nProcessed with function results:", processedAnswer);
 
-        // Extraer resultado de función y crear respuesta natural directa
-        const resultMatch = processedAnswer.match(/\[\[result: (.*?)\]\]/);
-        if (resultMatch) {
-          try {
-            const result = JSON.parse(resultMatch[1]);
-            if (result.name && result.price) {
-              finalAnswer = `The price of ${result.name} is ${result.price}.`;
-            } else if (result.timestamp && result.formatted) {
-              finalAnswer = `The current time is ${result.formatted}.`;
-            } else if (result.location && result.temperature && result.condition) {
-              finalAnswer = `The weather in ${result.location} is ${result.condition} with temperature ${result.temperature}.`;
-            } else if (typeof result === 'string') {
-              finalAnswer = result;
-            } else {
-              finalAnswer = JSON.stringify(result, null, 2);
-            }
-          } catch (parseError) {
-            finalAnswer = resultMatch[1]; // Usar resultado raw si no es JSON
-          }
-        } else {
-          finalAnswer = "Function executed successfully.";
-        }
-
+        // Generar respuesta natural usando el modelo
+        finalAnswer = await this.generateNaturalResponse(userInput, processedAnswer);
         console.log("\n✅ Natural response generated:", finalAnswer);
       }
 
@@ -441,6 +421,190 @@ export class LocalLlamaFunctionHandler {
       `🔍 Function processing complete. Had calls: ${hadAnyFunctionCalls}`
     );
     return processedText;
+  }
+
+  /**
+   * Generar respuesta natural a partir de resultados de funciones
+   */
+  async generateNaturalResponse(originalQuery, functionResults) {
+    try {
+      // Extraer el resultado de la función
+      const resultMatch = functionResults.match(/\[\[result: (.*?)\]\]/);
+      if (!resultMatch) {
+        return "Function executed successfully, but no result data available.";
+      }
+
+      let functionData;
+      try {
+        functionData = JSON.parse(resultMatch[1]);
+      } catch (parseError) {
+        functionData = resultMatch[1]; // Usar raw si no es JSON válido
+      }
+
+      // Crear prompt para respuesta natural
+      const responsePrompt = this.createResponsePrompt(originalQuery, functionData);
+      
+      console.log("\n🔄 Generating natural response with prompt:", responsePrompt);
+
+      // Generar respuesta sin funciones (solo texto)
+      const naturalResponse = await this.session.prompt(responsePrompt, {
+        maxTokens: 200,
+        temperature: 0.7,
+        topP: 0.9,
+      });
+
+      return String(naturalResponse || "").trim();
+
+    } catch (error) {
+      console.error("❌ Error generating natural response:", error);
+      
+      // Fallback: crear respuesta simple basada en el tipo de datos
+      return this.createFallbackResponse(originalQuery, functionResults);
+    }
+  }
+
+  /**
+   * Crear prompt para respuesta natural basado en el tipo de consulta y datos
+   */
+  createResponsePrompt(originalQuery, functionData) {
+    // Analizar la estructura de los datos para generar un prompt inteligente
+    const dataAnalysis = this.analyzeFunctionData(functionData);
+    
+    // Crear prompt adaptativo basado en el análisis
+    return `You are an AI assistant helping a user understand information. The user asked: "${originalQuery}"
+
+You received this data from a function call:
+${JSON.stringify(functionData, null, 2)}
+
+Data analysis:
+- Data type: ${dataAnalysis.type}
+- Key information: ${dataAnalysis.keyInfo.join(', ')}
+- Structure: ${dataAnalysis.structure}
+
+Instructions:
+1. Provide a clear, conversational response that directly answers the user's question
+2. Focus on the most relevant information from the data
+3. Use natural language - avoid technical jargon or mentioning "function calls"
+4. If the data contains multiple items, organize your response logically
+5. Be concise but informative
+6. If there are numbers, dates, or technical details, explain them in context
+
+Respond naturally as if you're explaining this information to a colleague:`;
+  }
+
+  /**
+   * Analizar la estructura y contenido de los datos de función
+   */
+  analyzeFunctionData(data) {
+    if (typeof data === 'string') {
+      try {
+        data = JSON.parse(data);
+      } catch (e) {
+        return {
+          type: 'text',
+          keyInfo: ['raw text data'],
+          structure: 'simple string'
+        };
+      }
+    }
+
+    if (typeof data !== 'object' || data === null) {
+      return {
+        type: 'primitive',
+        keyInfo: [typeof data],
+        structure: 'single value'
+      };
+    }
+
+    const keys = Object.keys(data);
+    const keyInfo = [];
+    let dataType = 'object';
+    let structure = 'structured data';
+
+    // Analizar las claves para entender el tipo de información
+    if (Array.isArray(data)) {
+      dataType = 'list';
+      structure = `array with ${data.length} items`;
+      keyInfo.push(`${data.length} items`);
+      
+      // Analizar el primer elemento si existe
+      if (data.length > 0) {
+        const firstItem = data[0];
+        if (typeof firstItem === 'object') {
+          keyInfo.push(`each item has: ${Object.keys(firstItem).join(', ')}`);
+        }
+      }
+    } else {
+      // Analizar claves del objeto para detectar patrones
+      const statusKeys = ['status', 'state', 'running', 'active'];
+      const timeKeys = ['time', 'timestamp', 'date', 'uptime', 'duration'];
+      const serverKeys = ['server', 'host', 'port', 'url', 'service'];
+      const memoryKeys = ['memory', 'ram', 'usage', 'used', 'total'];
+      const countKeys = ['count', 'number', 'total', 'length'];
+      const nameKeys = ['name', 'title', 'id', 'identifier'];
+
+      keys.forEach(key => {
+        const lowerKey = key.toLowerCase();
+        
+        if (statusKeys.some(sk => lowerKey.includes(sk))) {
+          keyInfo.push('status information');
+          dataType = 'status';
+        } else if (timeKeys.some(tk => lowerKey.includes(tk))) {
+          keyInfo.push('time/date information');
+        } else if (serverKeys.some(sk => lowerKey.includes(sk))) {
+          keyInfo.push('server/service details');
+        } else if (memoryKeys.some(mk => lowerKey.includes(mk))) {
+          keyInfo.push('memory/resource usage');
+        } else if (countKeys.some(ck => lowerKey.includes(ck))) {
+          keyInfo.push('count/quantity data');
+        } else if (nameKeys.some(nk => lowerKey.includes(nk))) {
+          keyInfo.push('identification data');
+        } else {
+          keyInfo.push(key);
+        }
+      });
+
+      structure = `object with ${keys.length} properties`;
+    }
+
+    // Remover duplicados
+    const uniqueKeyInfo = [...new Set(keyInfo)];
+
+    return {
+      type: dataType,
+      keyInfo: uniqueKeyInfo.length > 0 ? uniqueKeyInfo : ['general data'],
+      structure: structure
+    };
+  }
+
+  /**
+   * Crear respuesta de respaldo si falla la generación natural
+   */
+  createFallbackResponse(originalQuery, functionResults) {
+    const resultMatch = functionResults.match(/\[\[result: (.*?)\]\]/);
+    if (!resultMatch) {
+      return "I executed the requested function successfully.";
+    }
+
+    try {
+      const data = JSON.parse(resultMatch[1]);
+      
+      // Análisis inteligente de los datos para crear respuesta de respaldo
+      const analysis = this.analyzeFunctionData(data);
+      
+      if (analysis.type === 'status' && data.server) {
+        return `The ${data.server} server is currently ${data.status || 'operational'}. ${data.uptime?.formatted ? `It has been running for ${data.uptime.formatted}` : ''} ${data.memory?.used ? `and is using ${data.memory.used} of memory.` : ''}`;
+      } else if (analysis.type === 'list' && Array.isArray(data)) {
+        return `I found ${data.length} items. Here's the information: ${JSON.stringify(data, null, 2)}`;
+      } else if (typeof data === 'string') {
+        return data;
+      } else {
+        // Respuesta genérica basada en el análisis
+        return `Here's the information you requested (${analysis.structure}): ${JSON.stringify(data, null, 2)}`;
+      }
+    } catch (e) {
+      return resultMatch[1]; // Retornar datos raw
+    }
   }
 
   /**
