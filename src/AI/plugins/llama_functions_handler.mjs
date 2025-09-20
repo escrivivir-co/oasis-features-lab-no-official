@@ -111,7 +111,7 @@ class LocalFunctionChatWrapper extends ChatWrapper {
 /**
  * Clase para manejar funciones con modelos locales usando node-llama-cpp
  */
-export class LocalLlamaFunctionHandler {
+export class LlamaFunctionHandler {
   constructor(config = {}) {
     this.modelPath = config.modelPath;
     this.gpu = config.gpu !== false; // Por defecto habilitada
@@ -715,7 +715,7 @@ Respond naturally as if you're explaining this information to a colleague:`;
 /**
  * Configuraciones predefinidas de funciones para node-llama-cpp
  */
-export const LOCAL_FUNCTION_CONFIGS = {
+export const LLAMA_FUNCTION_CONFIGS = {
   // Funciones de ejemplo para frutas
   fruits: {
     getFruitPrice: {
@@ -820,15 +820,15 @@ export function getLLamaFunctionsHandler(
   functionSets = ["fruits"],
   config = {}
 ) {
-  const handler = new LocalLlamaFunctionHandler({
+  const handler = new LlamaFunctionHandler({
     modelPath,
     ...config,
   });
 
   // Registrar sets de funciones solicitados
   functionSets.forEach((setName) => {
-    if (LOCAL_FUNCTION_CONFIGS[setName]) {
-      handler.registerFunctions(LOCAL_FUNCTION_CONFIGS[setName]);
+    if (LLAMA_FUNCTION_CONFIGS[setName]) {
+      handler.registerFunctions(LLAMA_FUNCTION_CONFIGS[setName]);
     } else {
       console.warn(`Local function set '${setName}' not found`);
     }

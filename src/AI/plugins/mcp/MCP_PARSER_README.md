@@ -42,7 +42,7 @@ npm run query-server -- hybrid -o hybrid_config.json
 ### 2. Handler Híbrido en Código
 
 ```javascript
-import { getLLamaFunctionsMCPHandler, HYBRID_PRESETS } from './plugins/llama_functions_mcp_handler.mjs';
+import { getLLamaFunctionsMCPHandler, LLAMA_FUNCTIONS_PRESETS } from './plugins/llama_functions_mcp_handler.mjs';
 
 // Handler con funciones locales + MCP
 const handler = await getLLamaFunctionsMCPHandler({
@@ -70,18 +70,18 @@ console.log(`Locales: ${stats.local.count}, MCP: ${stats.mcp.count}`);
 ### 3. Presets Disponibles
 
 ```javascript
-import { HYBRID_PRESETS } from './plugins/llama_functions_mcp_handler.mjs';
+import { LLAMA_FUNCTIONS_PRESETS } from './plugins/llama_functions_mcp_handler.mjs';
 
 // Solo funciones locales
 const localHandler = await getLLamaFunctionsMCPHandler({
   modelPath: './models/oasis-42-1-chat.Q4_K_M.gguf',
-  ...HYBRID_PRESETS.local
+  ...LLAMA_FUNCTIONS_PRESETS.local
 });
 
 // Con servidor de desarrollo
 const devHandler = await getLLamaFunctionsMCPHandler({
   modelPath: './models/oasis-42-1-chat.Q4_K_M.gguf',
-  ...HYBRID_PRESETS.development
+  ...LLAMA_FUNCTIONS_PRESETS.development
 });
 ```
 
@@ -101,16 +101,16 @@ const devHandler = await getLLamaFunctionsMCPHandler({
    - Ejecución de tools MCP desde node-llama-cpp
    - Gestión de múltiples servidores
 
-4. **HybridLlamaFunctionHandler** (`llama_functions_mcp_handler.mjs`)
+4. **LlamaFunctionMCPHandler** (`llama_functions_mcp_handler.mjs`)
    - Combinación de funciones locales + MCP
-   - Extensión de `LocalLlamaFunctionHandler`
+   - Extensión de `LlamaFunctionHandler`
 
 ### Flujo de Datos
 
 ```
 Servidor MCP → MCPToolsExtractor → MCPSchemaTransformer → node-llama-cpp functions
                                                        ↓
-                                              HybridLlamaFunctionHandler
+                                              LlamaFunctionMCPHandler
                                                        ↓
                                               Chat con funciones híbridas
 ```
@@ -237,7 +237,7 @@ plugins/
 ### Extender Funcionalidad
 1. Añadir soporte para nuevos transportes en `MCPToolsExtractor`
 2. Mejorar transformación de schemas en `MCPSchemaTransformer`
-3. Añadir nuevos presets en `HYBRID_PRESETS`
+3. Añadir nuevos presets en `LLAMA_FUNCTIONS_PRESETS`
 
 ---
 

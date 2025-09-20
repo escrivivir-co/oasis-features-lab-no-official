@@ -23,9 +23,9 @@ let functionsPlugin = null;
 try {
   const { getLLamaFunctionsHandler } = await import('./plugins/llama_functions_handler.mjs');
   const { getNodeLlamaCppHandler } = await import('./plugins/node_llama_cpp_handler.mjs');
-  const { getLLamaFunctionsMCPHandler, HYBRID_PRESETS } = await import('./plugins/llama_functions_mcp_handler.mjs');
+  const { getLLamaFunctionsMCPHandler, LLAMA_FUNCTIONS_PRESETS } = await import('./plugins/llama_functions_mcp_handler.mjs');
   const { getNodeLlamaCppMCPHandler } = await import('./plugins/node_llama_cpp_mcp_handler.mjs');
-  functionsPlugin = { getLLamaFunctionsHandler, getNodeLlamaCppHandler, getLLamaFunctionsMCPHandler, getNodeLlamaCppMCPHandler, HYBRID_PRESETS };
+  functionsPlugin = { getLLamaFunctionsHandler, getNodeLlamaCppHandler, getLLamaFunctionsMCPHandler, getNodeLlamaCppMCPHandler, LLAMA_FUNCTIONS_PRESETS };
 } catch (error) {
   console.log('Functions plugin not available, running in basic mode');
 }

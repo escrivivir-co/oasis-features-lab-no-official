@@ -4,7 +4,7 @@
  * Script de prueba para validar la implementación MCP-to-Llama
  */
 
-import { getLLamaFunctionsMCPHandler, HYBRID_PRESETS } from '../llama_functions_mcp_handler.mjs';
+import { getLLamaFunctionsMCPHandler, LLAMA_FUNCTIONS_PRESETS } from '../llama_functions_mcp_handler.mjs';
 import { getMCPFunctionHandler } from '../mcp_function_handler.mjs';
 
 async function testMCPExtraction() {
@@ -76,7 +76,7 @@ async function testHybridHandler() {
     try {
       const hybridHandler = await getLLamaFunctionsMCPHandler({
         modelPath: './models/oasis-42-1-chat.Q4_K_M.gguf',
-        ...HYBRID_PRESETS.development
+        ...LLAMA_FUNCTIONS_PRESETS.development
       });
 
       const hybridStats = hybridHandler.getFunctionStats();

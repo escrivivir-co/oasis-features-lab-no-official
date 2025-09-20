@@ -1,11 +1,11 @@
-import { LocalModelHandler, LOCAL_FUNCTION_CONFIGS } from './node_llama_cpp_handler.mjs';
+import { NodeLLamaCppHandler, NODE_LLAMA_CPP_CONFIGS } from './node_llama_cpp_handler.mjs';
 import { getMCPFunctionHandler } from './mcp/mcp_function_handler.mjs';
 
 /**
- * Handler MCP que extiende LocalModelHandler para usar node-llama-cpp nativo
+ * Handler MCP que extiende NodeLLamaCppHandler para usar node-llama-cpp nativo
  * con funciones MCP. Más simple que la implementación manual.
  */
-export class MCPModelHandler extends LocalModelHandler {
+export class NodeLLamaCppMCPHandler extends NodeLLamaCppHandler {
   constructor(config = {}) {
     super(config);
     this.mcpHandler = getMCPFunctionHandler();
@@ -19,7 +19,7 @@ export class MCPModelHandler extends LocalModelHandler {
    */
   async registerMCPServer(serverName, serverConfig, transportType = 'http') {
     try {
-      console.log(`🔧 MCPModelHandler: Registrando servidor ${serverName} en ${serverConfig}...`);
+      console.log(`🔧 NodeLLamaCppMCPHandler: Registrando servidor ${serverName} en ${serverConfig}...`);
       
       const result = await this.mcpHandler.registerServer(serverName, serverConfig, transportType);
       
@@ -67,7 +67,7 @@ export class MCPModelHandler extends LocalModelHandler {
         serverDetails: serverDetails
       });
       
-      console.log(`✅ Servidor MCP ${actualServerName} registrado en MCPModelHandler`);
+      console.log(`✅ Servidor MCP ${actualServerName} registrado en NodeLLamaCppMCPHandler`);
       
       return {
         ...result,
@@ -116,7 +116,7 @@ export class MCPModelHandler extends LocalModelHandler {
     // Luego agregar funciones MCP
     this._addMCPFunctions();
     
-    console.log(`🔧 MCPModelHandler: Total de funciones: ${this.functions.size}`);
+    console.log(`🔧 NodeLLamaCppMCPHandler: Total de funciones: ${this.functions.size}`);
   }
 
   /**
@@ -169,7 +169,7 @@ export class MCPModelHandler extends LocalModelHandler {
       }
     }
     
-    console.log(`🔧 MCPModelHandler: Funciones MCP agregadas con prefijos cortos`);
+    console.log(`🔧 NodeLLamaCppMCPHandler: Funciones MCP agregadas con prefijos cortos`);
   }
 
   /**
@@ -180,7 +180,7 @@ export class MCPModelHandler extends LocalModelHandler {
     
     // Crear handler interceptado que ejecuta en MCP
     const mcpHandler = async (params) => {
-      console.log(`🔄 MCPModelHandler: Ejecutando función MCP ${name} -> ${serverInfo.toolName} en ${serverInfo.serverName}`);
+      console.log(`🔄 NodeLLamaCppMCPHandler: Ejecutando función MCP ${name} -> ${serverInfo.toolName} en ${serverInfo.serverName}`);
       
       try {
         // Ejecutar en el servidor MCP correcto
@@ -191,7 +191,7 @@ export class MCPModelHandler extends LocalModelHandler {
         );
         
         if (mcpResult.success) {
-          console.log(`✅ MCPModelHandler: Función MCP ${name} ejecutada exitosamente`);
+          console.log(`✅ NodeLLamaCppMCPHandler: Función MCP ${name} ejecutada exitosamente`);
           
           // Almacenar resultado para debugging
           this.lastMCPResults.push({
@@ -206,7 +206,7 @@ export class MCPModelHandler extends LocalModelHandler {
           throw new Error(`MCP function failed: ${mcpResult.error}`);
         }
       } catch (error) {
-        console.error(`❌ MCPModelHandler: Error ejecutando función MCP ${name}:`, error);
+        console.error(`❌ NodeLLamaCppMCPHandler: Error ejecutando función MCP ${name}:`, error);
         throw error;
       }
     };
@@ -219,7 +219,7 @@ export class MCPModelHandler extends LocalModelHandler {
     };
 
     this.functions.set(name, nodeLlamaFunction);
-    console.log(`🔧 MCPModelHandler: Función MCP registrada: ${name}`);
+    console.log(`🔧 NodeLLamaCppMCPHandler: Función MCP registrada: ${name}`);
   }
 
   /**
@@ -268,15 +268,15 @@ export class MCPModelHandler extends LocalModelHandler {
   async cleanup() {
     try {
       await this.mcpHandler.disconnectAll();
-      console.log('🧹 MCPModelHandler: Limpieza de conexiones MCP completada');
+      console.log('🧹 NodeLLamaCppMCPHandler: Limpieza de conexiones MCP completada');
     } catch (error) {
-      console.error('❌ MCPModelHandler: Error en limpieza:', error);
+      console.error('❌ NodeLLamaCppMCPHandler: Error en limpieza:', error);
     }
   }
 
   async print() {
     const stats = this.getFunctionStats();
-    console.log("📊 MCPModelHandler Function Statistics:");
+    console.log("📊 NodeLLamaCppMCPHandler Function Statistics:");
     console.log(`   Local functions: ${stats.local.count}`);
     console.log(`   MCP functions: ${stats.mcp.count}`);
     console.log(`   Total functions: ${stats.total}`);
@@ -302,8 +302,8 @@ export async function createMCPModelHandler(config = {}) {
     ...llamaConfig
   } = config;
 
-  console.log('🏭 CreateMCPModelHandler: Creando instancia de MCPModelHandler...');
-  const handler = new MCPModelHandler({
+  console.log('🏭 CreateMCPModelHandler: Creando instancia de NodeLLamaCppMCPHandler...');
+  const handler = new NodeLLamaCppMCPHandler({
     modelPath,
     functionSets,
     ...llamaConfig

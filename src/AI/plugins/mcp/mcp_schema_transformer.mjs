@@ -102,7 +102,7 @@ export class MCPSchemaTransformer {
   }
 
   /**
-   * Generar configuración completa compatible con LOCAL_FUNCTION_CONFIGS
+   * Generar configuración completa compatible con LLAMA_FUNCTION_CONFIGS
    */
   generateFunctionConfig(tools, includeMetadata = true) {
     const functions = this.transformTools(tools);

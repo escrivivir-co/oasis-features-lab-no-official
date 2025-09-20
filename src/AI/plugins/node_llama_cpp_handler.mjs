@@ -15,7 +15,7 @@ const __dirname = path.dirname(__filename);
 /**
  * Configuraciones predefinidas de funciones para node-llama-cpp
  */
-export const LOCAL_FUNCTION_CONFIGS = {
+export const NODE_LLAMA_CPP_CONFIGS = {
   // Funciones de ejemplo para frutas
   fruits: {
     getFruitPrice: {
@@ -242,7 +242,7 @@ class MyCustomChatWrapper extends ChatWrapper {
 /**
  * Clase para manejar el modelo local legacy
  */
-export class LocalModelHandler {
+export class NodeLLamaCppHandler {
   constructor(config = {}) {
     this.llamaInstance = null;
     this.model = null;
@@ -322,8 +322,8 @@ export class LocalModelHandler {
   initFunctions() {
     // Registrar sets de funciones solicitados
     this.functionSets.forEach((setName) => {
-      if (LOCAL_FUNCTION_CONFIGS[setName]) {
-        this.registerFunctions(LOCAL_FUNCTION_CONFIGS[setName]);
+      if (NODE_LLAMA_CPP_CONFIGS[setName]) {
+        this.registerFunctions(NODE_LLAMA_CPP_CONFIGS[setName]);
       } else {
         console.warn(`Local function set '${setName}' not found`);
       }
@@ -493,7 +493,7 @@ let localModelHandler = null;
 
 export async function getNodeLlamaCppHandler(config = {}) {
   if (!localModelHandler) {
-    localModelHandler = new LocalModelHandler(config);
+    localModelHandler = new NodeLLamaCppHandler(config);
   }
   return localModelHandler;
 }

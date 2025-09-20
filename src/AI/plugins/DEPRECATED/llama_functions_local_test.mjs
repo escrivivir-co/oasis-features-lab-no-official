@@ -1,6 +1,6 @@
 import path from "path";
 import { fileURLToPath } from "url";
-import { getLLamaFunctionsHandler, LOCAL_FUNCTION_CONFIGS } from "../llama_functions_handler.mjs";
+import { getLLamaFunctionsHandler, LLAMA_FUNCTION_CONFIGS } from "../llama_functions_handler.mjs";
 import { GPUDiagnostics } from "../gpu_diagnostics.mjs";
 
 const __filename = fileURLToPath(import.meta.url);

@@ -1,10 +1,10 @@
-import { LocalLlamaFunctionHandler, LOCAL_FUNCTION_CONFIGS } from './llama_functions_handler.mjs';
+import { LlamaFunctionHandler, LLAMA_FUNCTION_CONFIGS } from './llama_functions_handler.mjs';
 import { getMCPFunctionHandler } from './mcp/mcp_function_handler.mjs';
 
 /**
  * Handler híbrido que combina funciones locales con funciones MCP
  */
-export class HybridLlamaFunctionHandler extends LocalLlamaFunctionHandler {
+export class LlamaFunctionMCPHandler extends LlamaFunctionHandler {
   constructor(config = {}) {
     super(config);
     this.mcpHandler = getMCPFunctionHandler();
@@ -226,8 +226,8 @@ export class HybridLlamaFunctionHandler extends LocalLlamaFunctionHandler {
     // Registrar funciones locales
     if (localFunctionSets.length > 0) {
       localFunctionSets.forEach(setName => {
-        if (LOCAL_FUNCTION_CONFIGS[setName]) {
-          this.registerFunctions({ [setName]: LOCAL_FUNCTION_CONFIGS[setName] });
+        if (LLAMA_FUNCTION_CONFIGS[setName]) {
+          this.registerFunctions({ [setName]: LLAMA_FUNCTION_CONFIGS[setName] });
           console.log(`✅ Funciones locales registradas: ${setName}`);
         } else {
           console.warn(`⚠️ Set de funciones desconocido: ${setName}`);
@@ -588,8 +588,8 @@ export async function getLLamaFunctionsMCPHandler(config = {}) {
     ...llamaConfig
   } = config;
 
-  console.log('🏭 CreateHybridHandler: Creando instancia de HybridLlamaFunctionHandler...');
-  const handler = new HybridLlamaFunctionHandler({
+  console.log('🏭 CreateHybridHandler: Creando instancia de LlamaFunctionMCPHandler...');
+  const handler = new LlamaFunctionMCPHandler({
     modelPath,
     ...llamaConfig
   });
@@ -629,7 +629,7 @@ export async function getLLamaFunctionsMCPHandler(config = {}) {
 /**
  * Configuraciones predefinidas para diferentes escenarios
  */
-export const HYBRID_PRESETS = {
+export const LLAMA_FUNCTIONS_PRESETS = {
   // Solo funciones locales básicas
   local: {
     localFunctions: ['fruits', 'system'],
