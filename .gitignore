@@ -1,2 +1,5 @@
 **/*.gguf
 **/node_modules
+volumes
+ECOIN_DOCKERIZE
+backups
