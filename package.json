@@ -12,18 +12,17 @@
     "stop": "docker-compose stop",
     "down": "docker-compose down -v",
     "logs": "docker-compose logs -f",
-    "shell": "docker-compose exec oasis-server-dev /bin/bash",
+    "shell": "docker-compose exec oasis-dev /bin/bash",
     "backup-keys": "sh ./docker-scripts/backup-keys.sh",
     "clean": "docker-compose down -v && docker system prune -f",
     "server-only": "docker-compose run --rm -p 8008:8008 oasis-dev server",
     "status": "docker-compose ps && docker ps",
     "restart": "docker-compose restart",
     "update": "git pull && docker-compose build --no-cache && docker-compose up -d",
-    "top": "docker-compose top",
-    
-    "ai:health": "curl -s http://localhost:4001/health | jq .",
-    "ai:status": "curl -s http://localhost:4001/status | jq .",
-    "ai:test": "curl -s -X POST http://localhost:4001/ai -H 'Content-Type: application/json' -d '{\"input\":\"Hello AI, are you working?\"}' | jq .",
-    "ai:logs": "docker-compose logs -f oasis-server-dev | grep 'AI Service'"
+    "top": "docker-compose top"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.18.1",
+    "@types/node": "^24.5.2"
   }
 }

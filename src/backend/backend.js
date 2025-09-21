@@ -13,6 +13,9 @@ const moment = require('../server/node_modules/moment');
 const FileType = require('../server/node_modules/file-type');
 const ssbRef = require("../server/node_modules/ssb-ref");
 
+const AI_HOST="host.docker.internal"
+const AI_PORT="4001"
+
 const defaultConfig = {};
 const defaultConfigFile = path.join(
   envPaths("oasis", { suffix: "" }).config,
@@ -54,7 +57,7 @@ async function startAI() {
     
     // Verificar si el servicio AI ya está ejecutándose
     try {
-        const healthCheck = await axios.get('http://localhost:4001/health', { timeout: 1000 });
+        const healthCheck = await axios.get(`http://${AI_HOST}:${AI_PORT}/health`, { timeout: 1000 });
         if (healthCheck.status === 200) {
             console.log('✅ Servicio AI ya está ejecutándose');
             aiStarted = true;
@@ -63,11 +66,10 @@ async function startAI() {
     } catch (err) {
         // El servicio no está disponible, proceder a iniciarlo
     }
-    
+    /*
     aiStarted = true;
-    const aiPath = path.resolve(__dirname, '../AI/ai_service.mjs');
-    console.log('🤖 Intentando iniciar servicio AI Standalone...');
-    aiStarted = true;
+    // const aiPath = path.resolve(__dirname, '../AI/ai_service.mjs');
+    // console.log('🤖 Intentando iniciar servicio AI Standalone...');
     try {
         const aiProcess = spawn('node', [aiPath], {
             detached: true,
@@ -93,6 +95,7 @@ async function startAI() {
         console.error('❌ Error al iniciar servicio AI Standalone:', err);
         aiStarted = false;
     }
+  */
 }
 
 //banking
@@ -663,7 +666,7 @@ router
         ctx.redirect('/modules');
         return;
     }
-    startAI();
+    // startAI();
     const i18nAll = require('../client/assets/translations/i18n');
     const lang = ctx.cookies.get('lang') || 'en';
     const translations = i18nAll[lang] || i18nAll['en'];
@@ -1635,7 +1638,7 @@ router
         console.log('Received /ai request error: No input provided');
         return;
     }
-    startAI();
+    // startAI();
     const i18nAll = require('../client/assets/translations/i18n');
     const lang = ctx.cookies.get('lang') || 'en';
     const translations = i18nAll[lang] || i18nAll['en'];
@@ -1692,7 +1695,7 @@ router
     
     try {
         // Verificar que el servicio AI esté disponible
-        const healthCheck = await axios.get('http://localhost:4001/health', { timeout: 2000 }).catch(() => null);
+        const healthCheck = await axios.get(`http://${AI_HOST}:${AI_PORT}/health`, { timeout: 2000 }).catch(() => null);
         if (!healthCheck) {
             console.error('🤖 Servicio AI no disponible');
             throw new Error('Servicio AI no disponible');
@@ -1700,7 +1703,7 @@ router
         
         console.log('🤖 Enviando petición al servicio AI...');
         // Enviar input Y contexto al servicio AI con timeout más largo
-        const response = await axios.post('http://localhost:4001/ai', { 
+        const response = await axios.post(`http://${AI_HOST}:${AI_PORT}/ai`, { 
             input, 
             context: userContext,
             prompt: userPrompt 

@@ -428,7 +428,7 @@ else
 fi
 
 # 1. Verificar e inicializar estructura SSB (con recuperación si es necesario)
-check_and_recover_ssb
+# check_and_recover_ssb
 
 # 2. Configurar SSB
 setup_ssb_config
@@ -483,16 +483,16 @@ case "$MODE" in
         echo "🚀 Iniciando servidor completo (SSB + Cliente + AI)..."
         
         # Iniciar servicio AI standalone en background si el modelo existe
-        if [ -f "$MODEL_PATH" ]; then
-            echo "🤖 Iniciando servicio AI Standalone en puerto 4001..."
-            cd "$CURRENT_DIR/src/AI"
-            node ai_service_standalone.mjs &
-            AI_PID=$!
-            echo "   → AI Standalone PID: $AI_PID"
-            sleep 2  # Dar tiempo para que arranque
-        else
-            echo "⚠ Modelo AI no encontrado - servicio AI deshabilitado"
-        fi
+        # if [ -f "$MODEL_PATH" ]; then
+        #    echo "🤖 Iniciando servicio AI Standalone en puerto 4001..."
+        #     cd "$CURRENT_DIR/src/AI"
+        #     node ai_service_standalone.mjs &
+        #     AI_PID=$!
+        #     echo "   → AI Standalone PID: $AI_PID"
+        #     sleep 2  # Dar tiempo para que arranque
+        # else
+        #     echo "⚠ Modelo AI no encontrado - servicio AI deshabilitado"
+        # fi
         
         # Iniciar backend.js que incluye tanto SSB como cliente web
         cd "$CURRENT_DIR/src/backend"

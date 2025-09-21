@@ -44,12 +44,11 @@ WORKDIR /app/src/server
 RUN npm install --no-bin-links --ignore-scripts
 
 # Instalar dependencias de AI con binarios Linux correctos
-WORKDIR /app/src/AI
-RUN npm install --no-bin-links --ignore-scripts && \
-    npm install @node-llama-cpp/linux-x64-cuda @node-llama-cpp/linux-x64 --save-optional
+# WORKDIR /app/src/AI
+# RUN npm install --no-bin-links --ignore-scripts
 
 # Exponer puertos
-EXPOSE 8008 3000 4001
+EXPOSE 8008 3000
 
 # Punto de entrada integrado
 ENTRYPOINT ["/app/docker-entrypoint.sh"]
