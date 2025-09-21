@@ -1,0 +1,6 @@
+volumes
+backups
+repos
+.env
+**/ecoin-qt
+**/ecoind

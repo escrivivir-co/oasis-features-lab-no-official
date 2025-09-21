@@ -49,15 +49,49 @@ const { spawn } = require('child_process');
 const { fieldsForSnippet, buildContext, clip, publishExchange } = require('../AI/buildAIContext.js');
 
 let aiStarted = false;
-function startAI() {
+async function startAI() {
     if (aiStarted) return;
+    
+    // Verificar si el servicio AI ya está ejecutándose
+    try {
+        const healthCheck = await axios.get('http://localhost:4001/health', { timeout: 1000 });
+        if (healthCheck.status === 200) {
+            console.log('✅ Servicio AI ya está ejecutándose');
+            aiStarted = true;
+            return;
+        }
+    } catch (err) {
+        // El servicio no está disponible, proceder a iniciarlo
+    }
+    
     aiStarted = true;
-    const aiPath = path.resolve(__dirname, '../AI/ai_service.mjs');
-    const aiProcess = spawn('node', [aiPath], {
-        detached: true,
-        stdio: 'ignore' // set 'inherit' for debug
-    });
-    aiProcess.unref();
+    const aiPath = path.resolve(__dirname, '../AI/ai_service_standalone.mjs');
+    console.log('🤖 Intentando iniciar servicio AI Standalone...');
+    try {
+        const aiProcess = spawn('node', [aiPath], {
+            detached: true,
+            stdio: ['ignore', 'pipe', 'pipe'] // capturar logs para debug
+        });
+        
+        aiProcess.stdout?.on('data', (data) => {
+            console.log(`AI-OUT: ${data}`);
+        });
+        
+        aiProcess.stderr?.on('data', (data) => {
+            console.log(`AI-ERR: ${data}`);
+        });
+        
+        aiProcess.on('error', (err) => {
+            console.error('Error iniciando AI Standalone:', err);
+            aiStarted = false;
+        });
+        
+        aiProcess.unref();
+        console.log('✅ Servicio AI Standalone iniciado con PID:', aiProcess.pid);
+    } catch (err) {
+        console.error('❌ Error al iniciar servicio AI Standalone:', err);
+        aiStarted = false;
+    }
 }
 
 //banking
@@ -495,7 +529,13 @@ try {
 const readmePath = path.join(__dirname, "..", ".." ,"README.md");
 const packagePath = path.join(__dirname, "..", "server", "package.json");
 
-const readme = fs.readFileSync(readmePath, "utf8");
+// Leer README.md con fallback si no existe
+let readme;
+try {
+    readme = fs.readFileSync(readmePath, "utf8");
+} catch (err) {
+    readme = "# OASIS\n\nDecentralized social network built on SSB.\n\nDockerized version running successfully.";
+}
 const version = JSON.parse(fs.readFileSync(packagePath, "utf8")).version;
 
 const nullImageId = '&0000000000000000000000000000000000000000000=.sha256';
@@ -1586,10 +1626,12 @@ router
 
   //POST backend routes   
   .post('/ai', koaBody(), async (ctx) => {
+    console.log('Received /ai request');
     const { input } = ctx.request.body;
     if (!input) {
         ctx.status = 400;
         ctx.body = { error: 'No input provided' };
+        console.log('Received /ai request error: No input provided');
         return;
     }
     startAI();
@@ -1606,12 +1648,67 @@ router
     } catch {
         chatHistory = [];
     }
+    console.log('Chat history loaded, entries:', chatHistory.length);
     const config = getConfig();
     const userPrompt = config.ai?.prompt?.trim() || 'Provide an informative and precise response.';
+    
+    // Construir contexto JUSTO ANTES de enviar al AI (manteniendo el concepto original)
+    let userContext = '';
+    let snippets = [];
     try {
-        const response = await axios.post('http://localhost:4001/ai', { input });
+        console.log('🔍 Construyendo contexto AI en tiempo real...');
+        
+        // Contexto general del sistema (como el original)
+        userContext = await (buildContext ? buildContext(120) : '');
+        
+        // MEJORA: Contexto específico basado en la consulta del usuario
+        let specificContext = '';
+        if (input && input.length > 0) {
+            try {
+                // Intentar obtener contexto específico relacionado con la consulta
+                const queryKeywords = input.toLowerCase().split(' ').filter(word => word.length > 3);
+                if (queryKeywords.length > 0) {
+                    console.log(`🎯 Buscando contexto específico para: ${queryKeywords.slice(0, 3).join(', ')}`);
+                    // Aquí podrías añadir búsqueda específica en SSB basada en keywords
+                    specificContext = `\nConsulta específica: "${input}"\nPalabras clave: ${queryKeywords.slice(0, 5).join(', ')}`;
+                }
+            } catch (ex) {
+                console.log('⚠️ No se pudo obtener contexto específico:', ex.message);
+            }
+        }
+        
+        // Combinar contexto general + específico
+        userContext = userContext + specificContext;
+        
+        if (userContext) {
+            snippets = userContext.split('\n').slice(0, 50);
+        }
+        console.log(`📊 Contexto construido: ${userContext.length} caracteres, ${snippets.length} snippets`);
+    } catch(ex) {
+        console.error("❌ Error building AI context:", ex);
+        userContext = ''; // Continuar sin contexto si hay error
+    }
+    
+    try {
+        // Verificar que el servicio AI esté disponible
+        const healthCheck = await axios.get('http://localhost:4001/health', { timeout: 2000 }).catch(() => null);
+        if (!healthCheck) {
+            console.error('🤖 Servicio AI no disponible');
+            throw new Error('Servicio AI no disponible');
+        }
+        
+        console.log('🤖 Enviando petición al servicio AI...');
+        // Enviar input Y contexto al servicio AI con timeout más largo
+        const response = await axios.post('http://localhost:4001/ai', { 
+            input, 
+            context: userContext,
+            prompt: userPrompt 
+        }, { 
+            timeout: 120000, // 2 minutos para permitir carga del modelo
+            maxContentLength: Infinity,
+            maxBodyLength: Infinity
+        });
         const aiResponse = response.data.answer;
-        const snippets = Array.isArray(response.data.snippets) ? response.data.snippets : [];
         chatHistory.unshift({
             prompt: userPrompt,
             question: input,
@@ -1621,6 +1718,7 @@ router
             snippets
         });
     } catch (e) {
+        console.error('Error during AI request:', e.message);
         chatHistory.unshift({
             prompt: userPrompt,
             question: input,
