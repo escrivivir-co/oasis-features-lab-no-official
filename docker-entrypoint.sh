@@ -486,7 +486,7 @@ case "$MODE" in
         if [ -f "$MODEL_PATH" ]; then
             echo "🤖 Iniciando servicio AI Standalone en puerto 4001..."
             cd "$CURRENT_DIR/src/AI"
-            node ai_service_standalone.mjs &
+            node ai_service.mjs &
             AI_PID=$!
             echo "   → AI Standalone PID: $AI_PID"
             sleep 2  # Dar tiempo para que arranque

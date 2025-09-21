@@ -65,7 +65,7 @@ async function startAI() {
     }
     
     aiStarted = true;
-    const aiPath = path.resolve(__dirname, '../AI/ai_service_standalone.mjs');
+    const aiPath = path.resolve(__dirname, '../AI/ai_service.mjs');
     console.log('🤖 Intentando iniciar servicio AI Standalone...');
     try {
         const aiProcess = spawn('node', [aiPath], {
